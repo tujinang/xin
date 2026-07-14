@@ -1,0 +1,953 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>霍俊宇 | HYPERION BRIDGE</title>
+<style>
+/* ================================================================
+   RESET & VARIABLES — Hyperion Battleship Theme
+   ================================================================ */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#030a18;
+  --panel:#081428;
+  --panel-hover:#0c1a36;
+  --text:#dce4f2;
+  --text-secondary:#8898b8;
+  --text-tertiary:#5a6888;
+  --cyan:#00d4e0;
+  --cyan-glow:rgba(0,212,224,.5);
+  --cyan-dim:rgba(0,212,224,.12);
+  --blue:#4090e8;
+  --blue-glow:rgba(64,144,232,.45);
+  --blue-dim:rgba(64,144,232,.1);
+  --amber:#f0a050;
+  --amber-glow:rgba(240,160,80,.45);
+  --amber-dim:rgba(240,160,80,.1);
+  --magenta:#b878e0;
+  --magenta-dim:rgba(184,120,224,.1);
+  --rose:#e89494;
+  --rose-dim:rgba(232,148,148,.1);
+  --border:rgba(120,160,220,.1);
+  --border-active:rgba(0,212,224,.3);
+  --font:"PingFang SC","Microsoft YaHei","Hiragino Sans GB","STHeiti",system-ui,-apple-system,sans-serif;
+  --transition:.3s cubic-bezier(.4,0,.2,1);
+}
+html{scroll-behavior:smooth}
+body{
+  font-family:var(--font);
+  background:var(--bg);
+  color:var(--text);
+  line-height:1.7;
+  min-height:100vh;
+  overflow-x:hidden;
+  -webkit-font-smoothing:antialiased;
+}
+
+/* Subtle hex-grid background */
+body::before{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:
+    linear-gradient(rgba(64,144,232,.04) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(64,144,232,.04) 1px,transparent 1px);
+  background-size:40px 40px;
+  mask-image:radial-gradient(ellipse 70% 60% at 50% 40%,black 30%,transparent 70%);
+  -webkit-mask-image:radial-gradient(ellipse 70% 60% at 50% 40%,black 30%,transparent 70%);
+}
+
+/* ================================================================
+   STARFIELD CANVAS
+   ================================================================ */
+#starfield{position:fixed;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:0}
+
+/* ================================================================
+   SCAN LINES (subtle CRT effect)
+   ================================================================ */
+.scanlines{
+  position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.015) 2px,rgba(0,0,0,.015) 4px);
+}
+
+/* ================================================================
+   CONTAINER
+   ================================================================ */
+.container{max-width:940px;margin:0 auto;padding:0 28px;position:relative;z-index:1}
+
+/* ================================================================
+   NAVIGATION — Ship System Tabs
+   ================================================================ */
+nav{
+  position:fixed;top:0;left:0;right:0;z-index:100;
+  backdrop-filter:blur(20px) saturate(160%);
+  -webkit-backdrop-filter:blur(20px) saturate(160%);
+  background:rgba(3,10,24,.8);
+  border-bottom:1px solid var(--border);
+}
+nav::after{
+  content:'';position:absolute;bottom:0;left:0;right:0;
+  height:1px;background:linear-gradient(90deg,transparent,var(--cyan),transparent);
+  opacity:.5;
+}
+.nav-inner{
+  max-width:940px;margin:0 auto;padding:0 28px;
+  display:flex;align-items:center;justify-content:space-between;height:56px;
+}
+.nav-name{
+  font-weight:700;font-size:.95rem;letter-spacing:.08em;
+  color:var(--cyan);text-shadow:0 0 12px var(--cyan-glow);
+  display:flex;align-items:center;gap:10px;
+}
+.nav-name::before{
+  content:'';width:8px;height:8px;background:var(--cyan);
+  box-shadow:0 0 8px var(--cyan-glow);animation:pulse 2.5s ease-in-out infinite;
+}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
+.nav-links{display:flex;gap:8px;list-style:none}
+.nav-links a{
+  display:block;color:var(--text-secondary);text-decoration:none;
+  font-size:.78rem;font-weight:500;letter-spacing:.05em;padding:6px 14px;
+  border:1px solid transparent;transition:var(--transition);
+  position:relative;
+}
+.nav-links a:hover,.nav-links a.active{
+  color:var(--cyan);border-color:rgba(0,212,224,.25);
+  background:rgba(0,212,224,.06);
+}
+@media(max-width:680px){.nav-links a{padding:6px 8px;font-size:.7rem;letter-spacing:.02em}}
+
+/* ================================================================
+   HERO — Bridge Command
+   ================================================================ */
+.hero{
+  min-height:100vh;display:flex;align-items:center;
+  padding:100px 0 70px;position:relative;
+}
+.hero-layout{display:flex;gap:48px;align-items:center;flex-wrap:wrap}
+.hero-avatar{
+  flex-shrink:0;position:relative;
+  width:180px;height:180px;
+}
+/* Hexagonal frame */
+.hex-frame{
+  width:100%;height:100%;
+  clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);
+  overflow:hidden;position:relative;z-index:1;
+}
+.hex-frame img{
+  width:100%;height:100%;object-fit:cover;
+}
+.hex-frame .placeholder{
+  width:100%;height:100%;display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(160deg,var(--blue-dim),var(--cyan-dim));
+  font-size:3.5rem;
+}
+/* Glowing hex border */
+.hex-border{
+  position:absolute;inset:-3px;
+  clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);
+  background:linear-gradient(160deg,var(--cyan),var(--blue));
+  z-index:0;opacity:.8;
+}
+.hex-glow{
+  position:absolute;inset:-8px;
+  clip-path:polygon(50% 0%,100% 25%,100% 75%,50% 100%,0% 75%,0% 25%);
+  background:var(--cyan);filter:blur(16px);opacity:.25;z-index:-1;
+  animation:hex-pulse 3s ease-in-out infinite;
+}
+@keyframes hex-pulse{0%,100%{opacity:.2}50%{opacity:.45}}
+.hero-text{flex:1;min-width:280px}
+.hero-text .sys-tag{
+  display:inline-flex;align-items:center;gap:8px;
+  font-size:.74rem;font-weight:600;letter-spacing:.1em;
+  color:var(--cyan);margin-bottom:16px;
+}
+.hero-text .sys-tag::after{content:'';width:40px;height:1px;background:var(--cyan);opacity:.5}
+.hero-text h1{
+  font-size:clamp(2.4rem,5vw,3.4rem);
+  font-weight:900;line-height:1.12;letter-spacing:-.01em;
+  margin-bottom:12px;
+}
+.hero-text h1 .hl{color:var(--cyan)}
+.hero-text .tagline{font-size:1rem;color:var(--text-secondary);line-height:1.8;margin-bottom:10px}
+.hero-text .meta{
+  display:flex;gap:18px;flex-wrap:wrap;margin-bottom:30px;
+  font-size:.82rem;color:var(--text-tertiary);
+}
+.hero-text .meta span{display:inline-flex;align-items:center;gap:4px}
+.btn-row{display:flex;gap:12px;flex-wrap:wrap}
+.btn{
+  display:inline-flex;align-items:center;gap:7px;padding:10px 22px;
+  font-size:.85rem;font-weight:600;text-decoration:none;cursor:pointer;
+  transition:var(--transition);font-family:var(--font);letter-spacing:.04em;
+  clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px);
+}
+.btn-primary{
+  background:linear-gradient(135deg,var(--cyan),var(--blue));
+  color:#021018;box-shadow:0 0 24px var(--cyan-glow);
+}
+.btn-primary:hover{transform:translateY(-2px);box-shadow:0 0 40px rgba(0,212,224,.6)}
+.btn-outline{
+  background:transparent;color:var(--cyan);
+  border:1px solid rgba(0,212,224,.3);
+  clip-path:none;padding:10px 22px;
+}
+.btn-outline:hover{background:rgba(0,212,224,.08);border-color:var(--cyan)}
+
+/* Status panel */
+.status-bar{
+  display:flex;gap:24px;flex-wrap:wrap;margin-top:24px;
+  padding:14px 20px;background:rgba(8,20,40,.6);border:1px solid var(--border);
+  clip-path:polygon(6px 0,100% 0,100% calc(100% - 6px),calc(100% - 6px) 100%,0 100%,0 6px);
+}
+.status-item{display:flex;align-items:center;gap:8px;font-size:.78rem;color:var(--text-secondary)}
+.status-dot{width:6px;height:6px;border-radius:50%}
+.status-dot.online{background:var(--cyan);box-shadow:0 0 6px var(--cyan-glow)}
+.status-dot.standby{background:var(--amber);box-shadow:0 0 6px var(--amber-glow)}
+
+@media(max-width:680px){
+  .hero-layout{flex-direction:column;text-align:center;gap:28px}
+  .hero-avatar{width:140px;height:140px}
+  .hero-text .meta{justify-content:center}
+  .btn-row{justify-content:center}
+  .status-bar{justify-content:center}
+}
+
+/* ================================================================
+   SECTION HEADERS — Ship System Labels
+   ================================================================ */
+.section{padding:80px 0}
+.section-tag{
+  display:inline-flex;align-items:center;gap:10px;
+  font-size:.72rem;letter-spacing:.14em;font-weight:700;margin-bottom:10px;
+}
+.section-tag::before{content:'['}
+.section-tag::after{content:']'}
+.section-tag.cyan{color:var(--cyan)}
+.section-tag.amber{color:var(--amber)}
+.section-tag.magenta{color:var(--magenta)}
+.section-tag.rose{color:var(--rose)}
+.section-title{font-size:1.7rem;font-weight:700;letter-spacing:.02em;margin-bottom:12px}
+.section-sub{color:var(--text-secondary);font-size:.9rem;margin-bottom:36px;line-height:1.7}
+
+/* Tech line divider */
+.tech-line{
+  height:1px;border:none;margin:0 0 24px 0;
+  background:linear-gradient(90deg,transparent,var(--border),var(--cyan),var(--border),transparent);
+  opacity:.6;
+}
+
+/* ================================================================
+   BENTO GRID — System Panels
+   ================================================================ */
+.bento{display:grid;grid-template-columns:repeat(6,1fr);gap:16px}
+@media(max-width:767px){.bento{grid-template-columns:1fr 1fr;gap:12px}}
+.card{
+  background:var(--panel);border:1px solid var(--border);
+  padding:24px;transition:var(--transition);position:relative;overflow:hidden;
+}
+/* Tech corner angles */
+.card::before{
+  content:'';position:absolute;top:0;left:0;width:16px;height:16px;
+  border-top:1px solid rgba(0,212,224,.25);border-left:1px solid rgba(0,212,224,.25);
+  pointer-events:none;opacity:0;transition:opacity .3s;
+}
+.card::after{
+  content:'';position:absolute;bottom:0;right:0;width:16px;height:16px;
+  border-bottom:1px solid rgba(0,212,224,.25);border-right:1px solid rgba(0,212,224,.25);
+  pointer-events:none;opacity:0;transition:opacity .3s;
+}
+.card:hover{background:var(--panel-hover);border-color:var(--border-active)}
+.card:hover::before,.card:hover::after{opacity:1}
+.card.col-2{grid-column:span 2}
+.card.col-3{grid-column:span 3}
+.card.col-4{grid-column:span 4}
+.card.col-6{grid-column:span 6}
+@media(max-width:767px){.card.col-2,.card.col-3,.card.col-4,.card.col-6{grid-column:span 2}}
+
+.card-icon{font-size:1.5rem;margin-bottom:12px;display:block}
+.card h3{font-size:.95rem;font-weight:700;margin-bottom:8px;letter-spacing:.02em;color:var(--text)}
+.card p,.card li{font-size:.84rem;color:var(--text-secondary);line-height:1.75}
+.card ul{list-style:none;padding:0}
+.card ul li{padding:2px 0}
+.card ul li::before{content:'▸ ';color:var(--cyan);font-size:.65rem;opacity:.6}
+.card .stat{font-size:1.8rem;font-weight:900;color:var(--cyan);line-height:1}
+.card .stat-label{font-size:.76rem;color:var(--text-tertiary);margin-top:4px;letter-spacing:.04em}
+
+/* Accent borders */
+.card.accent-cyan{border-left:2px solid var(--cyan)}
+.card.accent-amber{border-left:2px solid var(--amber)}
+.card.accent-magenta{border-left:2px solid var(--magenta)}
+.card.accent-rose{border-left:2px solid var(--rose)}
+
+/* Gradient panels */
+.card.glow-cyan{background:linear-gradient(160deg,rgba(0,212,224,.06),var(--panel));border-color:rgba(0,212,224,.15)}
+.card.glow-amber{background:linear-gradient(160deg,rgba(240,160,80,.06),var(--panel));border-color:rgba(240,160,80,.15)}
+
+/* ================================================================
+   TIMELINE / LOG
+   ================================================================ */
+.tl-content{flex:1}
+.tl-header{display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px;margin-bottom:6px}
+.tl-header h4{font-size:.93rem;font-weight:700}
+.tl-header .tl-date{font-size:.78rem;color:var(--text-tertiary);font-weight:500;letter-spacing:.03em;white-space:nowrap}
+.tl-sub{font-size:.8rem;color:var(--cyan);font-weight:500;letter-spacing:.03em;margin-bottom:10px}
+.tl-content ul{list-style:none;padding:0}
+.tl-content ul li{font-size:.82rem;color:var(--text-secondary);line-height:1.85;padding:2px 0}
+.tl-content ul li::before{content:'› ';color:var(--text-tertiary)}
+.tl-content .highlight{color:var(--amber);font-weight:600}
+
+/* ================================================================
+   TAG CLOUD
+   ================================================================ */
+.tag-row{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.tag{
+  padding:4px 12px;font-size:.76rem;font-weight:500;letter-spacing:.02em;
+  border:1px solid var(--border);transition:var(--transition);
+}
+.tag.cyan{background:var(--cyan-dim);color:var(--cyan);border-color:rgba(0,212,224,.2)}
+.tag.amber{background:var(--amber-dim);color:var(--amber);border-color:rgba(240,160,80,.2)}
+.tag.magenta{background:var(--magenta-dim);color:var(--magenta);border-color:rgba(184,120,224,.2)}
+.tag.rose{background:var(--rose-dim);color:var(--rose);border-color:rgba(232,148,148,.2)}
+.tag.white{background:rgba(255,255,255,.04);color:var(--text-secondary)}
+
+/* ================================================================
+   MUSIC
+   ================================================================ */
+.music-item{
+  display:flex;align-items:center;gap:16px;padding:16px 0;
+  border-bottom:1px solid var(--border);
+}
+.music-item:last-child{border-bottom:none}
+.music-icon{
+  width:42px;height:42px;display:flex;align-items:center;justify-content:center;
+  font-size:1.2rem;flex-shrink:0;border:1px solid var(--border);
+}
+.music-icon.amber{background:var(--amber-dim);border-color:rgba(240,160,80,.2)}
+.music-icon.rose{background:var(--rose-dim);border-color:rgba(232,148,148,.2)}
+.music-icon.magenta{background:var(--magenta-dim);border-color:rgba(184,120,224,.2)}
+.music-info .song{font-weight:600;font-size:.9rem}
+.music-info .artist{font-size:.76rem;color:var(--text-tertiary);margin-top:2px}
+
+/* ================================================================
+   FOOTER
+   ================================================================ */
+footer{
+  text-align:center;padding:44px 28px;margin-top:40px;
+  border-top:1px solid var(--border);position:relative;
+}
+footer::before{
+  content:'';position:absolute;top:0;left:50%;transform:translateX(-50%);
+  width:60px;height:1px;background:var(--cyan);
+}
+footer{color:var(--text-tertiary);font-size:.8rem;line-height:2.2}
+footer .quote{color:var(--cyan);font-weight:500;letter-spacing:.03em}
+
+/* ================================================================
+   ANIMATIONS — progressive enhancement
+   ================================================================ */
+.reveal{opacity:1;transform:none}
+.reveal.animated{animation:fadeUp .6s ease both}
+@keyframes fadeUp{from{opacity:0;transform:translateY(24px)}to{opacity:1;transform:translateY(0)}}
+
+/* ================================================================
+   RESPONSIVE
+   ================================================================ */
+@media(max-width:600px){
+  .section{padding:50px 0}
+  .section-title{font-size:1.35rem}
+  .hero h1{font-size:2rem}
+  .card{padding:18px}
+  .tl-header{flex-direction:column;gap:2px}
+}
+</style>
+</head>
+<body>
+
+<!-- Starfield + Scanlines -->
+<canvas id="starfield"></canvas>
+<div class="scanlines"></div>
+
+<!-- ================================================================
+     NAVIGATION — Ship System Tabs
+     ================================================================ -->
+<nav>
+  <div class="nav-inner">
+    <span class="nav-name">HYPERION.OS</span>
+    <ul class="nav-links">
+      <li><a href="#about">舰长档案</a></li>
+      <li><a href="#edu">船员记录</a></li>
+      <li><a href="#exp">任务日志</a></li>
+      <li><a href="#projects">作战报告</a></li>
+      <li><a href="#world">精神宇宙</a></li>
+      <li><a href="#music">通讯频道</a></li>
+    </ul>
+  </div>
+</nav>
+
+<div class="container">
+
+<!-- ================================================================
+     HERO — Bridge Command
+     ================================================================ -->
+<section class="hero">
+  <div class="hero-layout">
+    <!-- Hexagonal Avatar -->
+    <div class="hero-avatar">
+      <div class="hex-glow"></div>
+      <div class="hex-border"></div>
+      <div class="hex-frame">
+        <img src="头像.jpeg" alt="霍俊宇" onerror="this.style.display='none';this.parentElement.querySelector('.placeholder').style.display='flex'">
+        <div class="placeholder" style="display:none">🧑‍🚀</div>
+      </div>
+    </div>
+    <!-- Text -->
+    <div class="hero-text">
+      <div class="sys-tag">SYS.ID // BRIDGE_COMMAND</div>
+      <h1>霍俊宇<span class="hl">。</span></h1>
+      <p class="tagline">计算机科学 · 北京大学<br>一个在<strong>代码</strong>与<strong>故事</strong>之间穿梭的星际旅人。</p>
+      <div class="meta">
+        <span>◆ 广西</span><span>◆ PKU '26</span><span>◆ 后端 / 数据</span>
+      </div>
+      <div class="btn-row">
+        <a href="#exp" class="btn btn-primary">▶ 查看任务日志</a>
+        <a href="#world" class="btn btn-outline">◈ 进入精神宇宙</a>
+      </div>
+      <!-- Status Bar -->
+      <div class="status-bar">
+        <div class="status-item"><span class="status-dot online"></span> SYSTEMS ONLINE</div>
+        <div class="status-item"><span class="status-dot online"></span> GPA 3.8/4.0</div>
+        <div class="status-item"><span class="status-dot standby"></span> WWW'26 PENDING</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<hr class="tech-line">
+
+<!-- ================================================================
+     ABOUT — 舰长档案
+     ================================================================ -->
+<section id="about" class="section reveal">
+  <div class="section-tag cyan">CAPTAIN_PROFILE</div>
+  <h2 class="section-title">舰长档案 · 航行者的自述</h2>
+
+  <div class="bento">
+    <div class="card col-6 glow-cyan" style="text-align:center;padding:32px 28px">
+      <p style="font-size:.93rem;line-height:1.9;color:var(--text-secondary);max-width:720px;margin:0 auto">
+        来自<strong style="color:var(--text)">广西</strong>，北京大学计算机系在读。喜欢写代码、看数据、做系统——但也沉迷于<strong style="color:var(--amber)">龙族</strong>里路明非的每一次"不要死"，折服于<strong style="color:var(--magenta)">道诡异仙</strong>那片分不清真妄的世界，在<strong style="color:var(--rose)">东野圭吾</strong>的恶意深渊里看见人性倒影。业余时间热衷于看那些「有梗但严肃」的视频，对数学抱有菜鸟级别的真诚热爱，对<strong style="color:var(--cyan)">奥特曼</strong>的光之羁绊深信不疑。正在努力成为一个既懂技术、又不失温度的人。
+      </p>
+    </div>
+    <div class="card col-2" style="text-align:center">
+      <div class="stat">3.8</div><div class="stat-label">GPA / 4.0</div>
+    </div>
+    <div class="card col-2" style="text-align:center">
+      <div class="stat">8TB+</div><div class="stat-label">日均数据吞吐量</div>
+    </div>
+    <div class="card col-2" style="text-align:center">
+      <div class="stat">8500</div><div class="stat-label">QPS 峰值承载力</div>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================
+     EDUCATION — 船员记录
+     ================================================================ -->
+<section id="edu" class="section reveal">
+  <div class="section-tag cyan">CREW_RECORD</div>
+  <h2 class="section-title">船员记录 · 教育背景</h2>
+
+  <div class="bento">
+    <div class="card col-4 accent-cyan">
+      <div class="tl-content" style="padding:0">
+        <div class="tl-header">
+          <h4>北京大学 · 计算机科学与技术 · 工学学士</h4>
+          <span class="tl-date">2022.09 – 2026.06</span>
+        </div>
+        <div class="tl-sub">GPA 3.8/4.0（专业前 10%）· 坐标: 北京</div>
+        <p style="margin-top:10px;font-size:.82rem;color:var(--text-secondary)">
+          ◆ 数据结构与算法(93) ◆ 操作系统(91) ◆ 计算机网络(90) ◆ 机器学习(95) ◆ 数据库系统(88) ◆ 离散数学(92)
+        </p>
+      </div>
+    </div>
+    <div class="card col-2 accent-amber" style="display:flex;flex-direction:column;justify-content:center">
+      <span class="card-icon">🏅</span>
+      <h3>授勋记录</h3>
+      <ul>
+        <li>校级一等奖学金（2023–2024）</li>
+        <li>优秀学生干部（2023）</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================
+     SKILLS — 装备清单
+     ================================================================ -->
+<section id="skills" class="section reveal">
+  <div class="section-tag magenta">EQUIPMENT_MANIFEST</div>
+  <h2 class="section-title">装备清单 · 技术栈</h2>
+
+  <div class="bento">
+    <div class="card col-3 accent-cyan">
+      <span class="card-icon">⌨️</span>
+      <h3>编程语言</h3>
+      <div class="tag-row">
+        <span class="tag amber">Python</span><span class="tag amber">Java</span>
+        <span class="tag cyan">C++</span><span class="tag cyan">SQL</span>
+        <span class="tag white">JavaScript</span>
+      </div>
+    </div>
+    <div class="card col-3 accent-magenta">
+      <span class="card-icon">⚙️</span>
+      <h3>框架 & 工具</h3>
+      <div class="tag-row">
+        <span class="tag amber">Spring Boot</span><span class="tag cyan">Vue.js</span>
+        <span class="tag magenta">PyTorch</span><span class="tag white">TensorFlow</span>
+        <span class="tag cyan">Scikit-learn</span><span class="tag white">Docker</span>
+        <span class="tag amber">Git</span>
+      </div>
+    </div>
+    <div class="card col-3 accent-amber">
+      <span class="card-icon">📊</span>
+      <h3>数据分析</h3>
+      <div class="tag-row">
+        <span class="tag amber">Pandas</span><span class="tag cyan">NumPy</span>
+        <span class="tag white">Matplotlib</span><span class="tag amber">Tableau</span>
+        <span class="tag cyan">Power BI</span>
+      </div>
+    </div>
+    <div class="card col-3 accent-cyan">
+      <span class="card-icon">🗄️</span>
+      <h3>数据库 & 其他</h3>
+      <div class="tag-row">
+        <span class="tag cyan">MySQL</span><span class="tag white">PostgreSQL</span>
+        <span class="tag magenta">Redis</span><span class="tag white">Axure RP</span>
+        <span class="tag cyan">Figma</span><span class="tag white">Jira</span>
+      </div>
+    </div>
+    <div class="card col-6 glow-cyan" style="text-align:center">
+      <span style="font-size:.82rem;color:var(--text-secondary);letter-spacing:.04em">
+        🌐 英语 CET-6（600）· 托福 105 · 流利学术读写与口语交流
+      </span>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================
+     EXPERIENCE — 任务日志
+     ================================================================ -->
+<section id="exp" class="section reveal">
+  <div class="section-tag amber">MISSION_LOG</div>
+  <h2 class="section-title">任务日志 · 实习经历</h2>
+
+  <!-- 字节跳动 -->
+  <div class="bento" style="margin-bottom:18px">
+    <div class="card col-6 accent-amber">
+      <div class="tl-content" style="padding:0">
+        <div class="tl-header">
+          <h4>◆ 字节跳动 · 后端开发实习生</h4>
+          <span class="tl-date">2025.03 – 2025.08</span>
+        </div>
+        <div class="tl-sub">数据平台部 · 坐标: 北京 · 任务周期: 6个月</div>
+        <ul>
+          <li>主导用户行为数据采集与清洗模块重构，设计并落地基于 <strong>Flink</strong> 的实时 ETL 流水线，数据清洗效率提升 <span class="highlight">45%</span>，日均处理 <span class="highlight">8TB+</span></li>
+          <li>独立开发数据质量监控平台核心告警模块，集成异常检测算法，异常发现时间从小时级 → <span class="highlight">分钟级</span>，误报率降至 <span class="highlight">3% 以下</span></li>
+          <li>重构数据查询 API，引入 Redis 缓存 + SQL 索引优化，QPS 从 1200 → <span class="highlight">8500</span>，响应时间降低 <span class="highlight">62%</span></li>
+          <li>编写单元测试 <span class="highlight">120+</span> 个，代码覆盖率 87%，参与 Code Review 40+ 次</li>
+          <li>Mentor「超出预期」评级 · 交付准时率 <span class="highlight">100%</span></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- 腾讯 -->
+  <div class="bento">
+    <div class="card col-6 accent-cyan">
+      <div class="tl-content" style="padding:0">
+        <div class="tl-header">
+          <h4>◆ 腾讯 · 数据分析实习生</h4>
+          <span class="tl-date">2024.07 – 2024.12</span>
+        </div>
+        <div class="tl-sub">微信支付事业部 · 坐标: 深圳 · 任务周期: 6个月</div>
+        <ul>
+          <li>搭建商户流失预警模型，基于 <strong>LightGBM</strong> 融合 23 个特征维度，预测准确率 <span class="highlight">89%</span>，提前预警 3.2 万家高危商户</li>
+          <li>主导 A/B 实验分析流程优化，设计标准化模板与自动化脚本，分析周期从 3 天 → <span class="highlight">4 小时</span>（效率提升 18 倍）</li>
+          <li>完成"春节红包活动"专项复盘，通过用户分群与漏斗分析定位瓶颈，输出 12 条建议，被采纳 <span class="highlight">7 条</span>，次年转化率提升 <span class="highlight">28%</span></li>
+          <li>构建商户经营健康度看板（Tableau），覆盖 15 项核心指标，服务运营团队 <span class="highlight">200+</span> 人，月均访问 3000+ 次</li>
+          <li>参与埋点规范 V2.0 设计，梳理 8 条核心行为路径，减少无效埋点 <span class="highlight">40%</span>，采集成本降低 25%</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================
+     PROJECTS — 作战报告
+     ================================================================ -->
+<section id="projects" class="section reveal">
+  <div class="section-tag cyan">OPERATION_REPORT</div>
+  <h2 class="section-title">作战报告 · 项目经历</h2>
+
+  <div class="bento">
+    <div class="card col-3 accent-magenta">
+      <span class="card-icon">📈</span>
+      <h3>「智投」智能投资组合管理系统</h3>
+      <p style="margin-bottom:6px;font-size:.78rem;color:var(--text-tertiary)">项目负责人 & 后端开发 · 2024.09 – 2025.01</p>
+      <ul>
+        <li>主导 4 人团队，后端 Spring Boot + MyBatis-Plus，前端 Vue3 + Element Plus</li>
+        <li>集成 MPT 与蒙特卡洛模拟，实现个性化资产配置与有效前沿曲线生成</li>
+        <li>对接东方财富 API，数据延迟 &lt;2 秒，支持 500+ 股票并发查询</li>
+        <li>RBAC + JWT 无状态认证，通过校级安全审计</li>
+        <li>🏆 学院"优秀毕业设计" · GitHub ⭐180+ · CSDN 推荐首页阅读 1.5w+</li>
+      </ul>
+    </div>
+
+    <div class="card col-3 accent-amber">
+      <span class="card-icon">🛒</span>
+      <h3>电商用户行为分析与个性化推荐系统</h3>
+      <p style="margin-bottom:6px;font-size:.78rem;color:var(--text-tertiary)">算法设计与实现 · 2024.03 – 2024.06</p>
+      <ul>
+        <li>Kaggle 500 万+ 用户行为记录，完整数据清洗与特征工程</li>
+        <li>协同过滤 + ALS 矩阵分解混合模型，Hit@10 达到 <span class="highlight">0.76</span></li>
+        <li>离线+在线两阶段推荐架构，毫秒级召回与精排</li>
+        <li>Flask API + ECharts 可视化前端</li>
+        <li>🏆 课程答辩 <span class="highlight">第二名（2/45）</span></li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================
+     RESEARCH + AWARDS — R&D
+     ================================================================ -->
+<section id="research" class="section reveal">
+  <div class="section-tag magenta">R&D_LAB</div>
+  <h2 class="section-title">研发日志 · 科研与荣誉</h2>
+
+  <div class="bento">
+    <div class="card col-3 accent-magenta">
+      <span class="card-icon">🔬</span>
+      <h3>基于 GNN 的社交网络异常检测</h3>
+      <p style="font-size:.78rem;color:var(--text-tertiary);margin-bottom:8px">核心成员 · 2024.10 – 2025.04</p>
+      <ul>
+        <li>研究 GAT & GraphSAGE 在欺诈检测中的应用，对比 XGBoost、Random Forest 等传统方法</li>
+        <li>DGL 框架 + YelpChi 数据集，引入注意力机制与边特征聚合</li>
+        <li>F1-score：0.72 → <span class="highlight">0.86</span></li>
+        <li>论文已投稿 <strong>WWW 2026 Workshop</strong>（审稿中）</li>
+      </ul>
+    </div>
+
+    <div class="card col-3 accent-amber">
+      <span class="card-icon">🏆</span>
+      <h3>嘉奖与认证</h3>
+      <ul>
+        <li>全国大学生数学建模竞赛 <strong>省级一等奖</strong>（2023）</li>
+        <li>"挑战杯"课外学术科技作品竞赛 <strong>省级二等奖</strong>（2024）</li>
+        <li>北大黑客马拉松 <strong>最佳技术实现奖</strong>（2024）</li>
+        <li>Google Data Analytics Professional Certificate（2024）</li>
+        <li>AWS Certified Cloud Practitioner（2024）</li>
+        <li>校级优秀学生奖学金（2023、2024 连续两年）</li>
+      </ul>
+    </div>
+
+    <div class="card col-6 glow-cyan" style="text-align:center">
+      <span class="card-icon">🌐</span>
+      <h3>其他任务记录</h3>
+      <p style="max-width:700px;margin:0 auto;font-size:.84rem">
+        北大计算机学院学生会技术部部长（2023–2024）—— 组织"1024 程序员节"，邀请业界嘉宾 8 位，参与 300+ 人；搭建学院活动小程序，服务 2000+ 人次。<br>
+        <strong>开源贡献者</strong> —— Apache DolphinScheduler 社区，提交 PR 被合并。<br>
+        <strong>技术博客</strong> —— 掘金/CSDN 累计 25 篇，总阅读量 6w+，获赞 1200+。
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================
+     INNER WORLD — 精神宇宙
+     ================================================================ -->
+<section id="world" class="section reveal">
+  <div class="section-tag rose">PERSONAL_QUARTERS</div>
+  <h2 class="section-title">精神宇宙 · 那些塑造了我的故事</h2>
+  <p class="section-sub">有些作品，看完了就忘不掉。它们不是消遣，是构成我的一部分。</p>
+
+  <div class="bento">
+    <div class="card col-2 accent-amber">
+      <span class="card-icon">🐉</span>
+      <h3>《龙族》· 江南</h3>
+      <p>青春、孤独、不甘、热血。路明非的每一次"不要死"，都在替每一个曾觉得自己不够好的人呐喊。有些段落至今想起仍觉心头发热。</p>
+      <div class="tag-row"><span class="tag amber">青春</span><span class="tag amber">热血</span><span class="tag amber">孤独</span></div>
+    </div>
+
+    <div class="card col-2 accent-magenta">
+      <span class="card-icon">🔮</span>
+      <h3>《道诡异仙》· 狐尾的笔</h3>
+      <p>分不清真妄的世界观是它最迷人的地方。李火旺在疯狂与清醒间的挣扎，让人头皮发麻又欲罢不能——读完后会重新打量身边的一切。</p>
+      <div class="tag-row"><span class="tag magenta">克系</span><span class="tag magenta">道学</span><span class="tag magenta">癫狂</span></div>
+    </div>
+
+    <div class="card col-2 accent-rose">
+      <span class="card-icon">🖋️</span>
+      <h3>《恶意》· 东野圭吾</h3>
+      <p>不是传统推理，而是对人性深渊的凝视。读到最后的反转——不是"凶手是谁"的震惊，而是"恶意可以藏多深"的心寒。东野圭吾最狠的一本。</p>
+      <div class="tag-row"><span class="tag rose">推理</span><span class="tag rose">人性</span></div>
+    </div>
+
+    <div class="card col-2 accent-cyan">
+      <span class="card-icon">🏝️</span>
+      <h3>《Summer Pockets》</h3>
+      <p>一座小岛、一个夏天、一段回不去的时光。Key 社总是知道怎么让你笑着笑着就哭了。有些夏天的记忆，明明不属于自己，却好像真的经历过一样。</p>
+      <div class="tag-row"><span class="tag cyan">治愈</span><span class="tag cyan">夏日</span></div>
+    </div>
+
+    <div class="card col-2 accent-amber">
+      <span class="card-icon">🌟</span>
+      <h3>特摄 · 奥特曼</h3>
+      <p>光是纽带，会有人继承的。从小看到大，从未觉得幼稚——巨大英雄站在城市上空的画面本身就是一种浪漫。M78 星云，永远的精神故乡。</p>
+      <div class="tag-row"><span class="tag amber">光</span><span class="tag amber">英雄</span></div>
+    </div>
+
+    <div class="card col-2 accent-magenta">
+      <span class="card-icon">🎬</span>
+      <h3>内容审美 & 数学</h3>
+      <p>偏爱「不端着」的表达——用幽默的壳包严肃的核。梗是入口，思辨才是回味。对数学也有一种说不清的偏爱，虽然自认菜鸟，但那种严谨中的优雅，真的很好看。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================
+     MUSIC — 通讯频道
+     ================================================================ -->
+<section id="music" class="section reveal">
+  <div class="section-tag rose">COMM_CHANNEL</div>
+  <h2 class="section-title">通讯频道 · 耳机里的坐标 🎧</h2>
+
+  <div class="bento">
+    <div class="card col-3 accent-rose">
+      <div class="music-item">
+        <div class="music-icon amber">🌸</div>
+        <div class="music-info"><div class="song">sakura</div><div class="artist">樱花飘落的速度，是秒速五厘米</div></div>
+      </div>
+      <div class="music-item">
+        <div class="music-icon rose">🎸</div>
+        <div class="music-info"><div class="song">ひとりじゃない</div><div class="artist">DUFF — 不是一个人，真好</div></div>
+      </div>
+      <div class="music-item">
+        <div class="music-icon magenta">💌</div>
+        <div class="music-info"><div class="song">君に贈る詩</div><div class="artist">DUFF — 想把这首诗，送给你</div></div>
+      </div>
+    </div>
+
+    <div class="card col-3 glow-cyan" style="display:flex;flex-direction:column;justify-content:center;text-align:center">
+      <span style="font-size:2.2rem;margin-bottom:12px">🌌</span>
+      <h3>听歌这件事</h3>
+      <p>好的旋律会让人停下来——放下手里的事，认真听完，然后沉默五秒。上面三首，最近循环了很多遍，每一遍都像第一次。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================
+     FOOTER
+     ================================================================ -->
+<footer>
+  <p>感谢你穿越星际来到这里 🚀</p>
+  <p class="quote">「光は絆だ。受け継ぐ者がいる。」</p>
+  <p style="margin-top:6px">霍俊宇 · 广西 · 北京大学 · HYPERION BRIDGE</p>
+</footer>
+
+</div><!-- /container -->
+
+<!-- ================================================================
+     SCRIPTS
+     ================================================================ -->
+<script>
+// ================================================================
+// STARFIELD — twinkling stars + nebula clouds + shooting stars
+// ================================================================
+(function(){
+  var c = document.getElementById('starfield');
+  var ctx = c.getContext('2d');
+  var stars = [], shooting = [];
+  var W, H;
+
+  function resize(){
+    W = window.innerWidth;
+    H = window.innerHeight;
+    c.width = W;
+    c.height = H;
+    c.style.width = W + 'px';
+    c.style.height = H + 'px';
+  }
+  resize();
+  window.addEventListener('resize', function(){
+    resize();
+    for(var i = 0; i < stars.length; i++){
+      stars[i].x = Math.random() * W;
+      stars[i].y = Math.random() * H;
+    }
+  });
+
+  for(var i = 0; i < 160; i++){
+    stars.push({
+      x: Math.random() * W,
+      y: Math.random() * H,
+      r: Math.random() * 1.4 + 0.15,
+      ba: 0.15 + Math.random() * 0.4,
+      sp: 0.003 + Math.random() * 0.007,
+      ph: Math.random() * Math.PI * 2,
+      h: Math.random() < 0.2 ? 190 : 250 // cyan tint or white-purple
+    });
+  }
+
+  function spawn(){
+    if(shooting.length > 2) return;
+    shooting.push({
+      x: Math.random() * W * 0.6,
+      y: Math.random() * H * 0.3,
+      len: 50 + Math.random() * 140,
+      spd: 6 + Math.random() * 18,
+      ang: 0.25 + Math.random() * 0.35,
+      life: 1,
+      decay: 0.01 + Math.random() * 0.025
+    });
+  }
+  setInterval(spawn, 3000);
+
+  function draw(){
+    ctx.clearRect(0, 0, W, H);
+
+    // Nebulae
+    var nbs = [
+      {x:W*.12,y:H*.2,r:W*.4,c:'rgba(0,180,210,'},
+      {x:W*.83,y:H*.7,r:W*.3,c:'rgba(230,125,40,'},
+      {x:W*.5,y:H*.45,r:W*.45,c:'rgba(120,90,200,'}
+    ];
+    for(var n = 0; n < nbs.length; n++){
+      var nb = nbs[n];
+      var g = ctx.createRadialGradient(nb.x, nb.y, 0, nb.x, nb.y, nb.r);
+      g.addColorStop(0, nb.c + '.012)');
+      g.addColorStop(1, 'transparent');
+      ctx.fillStyle = g;
+      ctx.fillRect(nb.x - nb.r, nb.y - nb.r, nb.r * 2, nb.r * 2);
+    }
+
+    // Stars
+    for(var i = 0; i < stars.length; i++){
+      var s = stars[i];
+      s.ph += s.sp;
+      var a = s.ba + 0.18 * Math.sin(s.ph);
+      if(a < 0.03) a = 0.03;
+
+      ctx.beginPath();
+      ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+      ctx.fillStyle = 'hsla(' + s.h + ',50%,82%,' + a + ')';
+      ctx.fill();
+
+      if(s.r > 0.8){
+        ctx.beginPath();
+        ctx.arc(s.x, s.y, s.r * 3, 0, Math.PI * 2);
+        ctx.fillStyle = 'hsla(' + s.h + ',45%,78%,' + (a * 0.17) + ')';
+        ctx.fill();
+      }
+
+      // Drift
+      s.y -= 0.05;
+      if(s.y < -8){ s.y = H + 8; s.x = Math.random() * W; }
+    }
+
+    // Shooting stars
+    for(var j = shooting.length - 1; j >= 0; j--){
+      var ss = shooting[j];
+      ss.x += Math.cos(ss.ang) * ss.spd;
+      ss.y += Math.sin(ss.ang) * ss.spd;
+      ss.life -= ss.decay;
+
+      if(ss.life <= 0 || ss.x > W + 60 || ss.y > H + 60){
+        shooting.splice(j, 1); continue;
+      }
+
+      var tx = ss.x - Math.cos(ss.ang) * ss.len;
+      var ty = ss.y - Math.sin(ss.ang) * ss.len;
+      var g2 = ctx.createLinearGradient(tx, ty, ss.x, ss.y);
+      g2.addColorStop(0, 'rgba(255,255,255,0)');
+      g2.addColorStop(0.5, 'rgba(190,210,255,' + (ss.life * 0.55) + ')');
+      g2.addColorStop(1, 'rgba(255,255,255,' + (ss.life * 0.9) + ')');
+
+      ctx.beginPath();
+      ctx.moveTo(tx, ty);
+      ctx.lineTo(ss.x, ss.y);
+      ctx.strokeStyle = g2;
+      ctx.lineWidth = 1.4;
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.arc(ss.x, ss.y, 2, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(255,255,255,' + ss.life + ')';
+      ctx.fill();
+    }
+
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+// ================================================================
+// SCROLL REVEAL — progressive enhancement
+// ================================================================
+(function(){
+  var reveals = document.querySelectorAll('.reveal');
+  if(!reveals.length) return;
+
+  if('IntersectionObserver' in window){
+    var obs = new IntersectionObserver(function(entries){
+      entries.forEach(function(e){
+        if(e.isIntersecting){
+          e.target.classList.add('animated');
+          obs.unobserve(e.target);
+        }
+      });
+    }, { threshold: 0.06, rootMargin: '0px 0px -16px 0px' });
+    reveals.forEach(function(el){ obs.observe(el); });
+  } else {
+    reveals.forEach(function(el){ el.classList.add('animated'); });
+  }
+})();
+
+// ================================================================
+// SMOOTH SCROLL
+// ================================================================
+document.querySelectorAll('a[href^="#"]').forEach(function(a){
+  a.addEventListener('click', function(e){
+    var t = document.querySelector(this.getAttribute('href'));
+    if(t){ e.preventDefault(); t.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+  });
+});
+
+// ================================================================
+// ACTIVE NAV LINK ON SCROLL
+// ================================================================
+(function(){
+  var sections = [];
+  var links = document.querySelectorAll('.nav-links a');
+  links.forEach(function(a){
+    var id = a.getAttribute('href');
+    if(id && id.startsWith('#')){
+      var el = document.querySelector(id);
+      if(el) sections.push({ el: el, link: a });
+    }
+  });
+  if(!sections.length) return;
+
+  window.addEventListener('scroll', function(){
+    var scrollY = window.scrollY + 120;
+    var current = null;
+    sections.forEach(function(s){
+      if(s.el.offsetTop <= scrollY) current = s;
+    });
+    links.forEach(function(a){ a.classList.remove('active'); });
+    if(current) current.link.classList.add('active');
+  });
+})();
+</script>
+</body>
+</html>
