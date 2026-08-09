@@ -265,7 +265,39 @@ nav::after{
 .card.col-6{grid-column:span 6}
 @media(max-width:767px){.card.col-2,.card.col-3,.card.col-4,.card.col-6{grid-column:span 2}}
 
-.card-icon{font-size:1.5rem;margin-bottom:12px;display:block}
+.card-icon{
+  display:block;width:32px;height:32px;position:relative;
+  margin-bottom:14px;color:var(--cyan);font-size:0;line-height:0;
+}
+/* 十字星 — 横竖双光轴 */
+.card-icon::before{
+  content:'';position:absolute;inset:0;
+  background:
+    linear-gradient(90deg,transparent calc(50% - 1.5px),currentColor calc(50% - 1.5px),currentColor calc(50% + 1.5px),transparent calc(50% + 1.5px)),
+    linear-gradient(0deg,transparent calc(50% - 1.5px),currentColor calc(50% - 1.5px),currentColor calc(50% + 1.5px),transparent calc(50% + 1.5px));
+  opacity:.82;transition:var(--transition);
+  box-shadow:0 0 10px currentColor;
+}
+/* 中心菱形核心 */
+.card-icon::after{
+  content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(45deg);
+  width:7px;height:7px;background:#fff;
+  box-shadow:0 0 6px #fff,0 0 14px var(--cyan);
+  transition:var(--transition);
+}
+/* Accent 色系 */
+.card.accent-amber .card-icon{color:var(--amber)}
+.card.accent-amber .card-icon::after{box-shadow:0 0 6px #fff,0 0 14px var(--amber)}
+.card.accent-magenta .card-icon{color:var(--magenta)}
+.card.accent-magenta .card-icon::after{box-shadow:0 0 6px #fff,0 0 14px var(--magenta)}
+.card.accent-rose .card-icon{color:var(--rose)}
+.card.accent-rose .card-icon::after{box-shadow:0 0 6px #fff,0 0 14px var(--rose)}
+/* Hover 脉冲 */
+.card:hover .card-icon::before{opacity:1}
+.card:hover .card-icon::after{
+  transform:translate(-50%,-50%) rotate(45deg) scale(1.2);
+  box-shadow:0 0 10px #fff,0 0 22px var(--cyan),0 0 36px var(--cyan-glow);
+}
 .card h3{font-size:.95rem;font-weight:700;margin-bottom:8px;letter-spacing:.02em;color:var(--text)}
 .card p,.card li{font-size:.84rem;color:var(--text-secondary);line-height:1.75}
 .card ul{list-style:none;padding:0}
@@ -321,11 +353,44 @@ nav::after{
 .music-item:last-child{border-bottom:none}
 .music-icon{
   width:42px;height:42px;display:flex;align-items:center;justify-content:center;
-  font-size:1.2rem;flex-shrink:0;border:1px solid var(--border);
+  font-size:0;flex-shrink:0;border:1px solid var(--border);
+  position:relative;
 }
+/* music-icon 十字星（略大） */
+.music-icon::before{
+  content:'';position:absolute;inset:4px;
+  background:
+    linear-gradient(90deg,transparent calc(50% - 1.5px),currentColor calc(50% - 1.5px),currentColor calc(50% + 1.5px),transparent calc(50% + 1.5px)),
+    linear-gradient(0deg,transparent calc(50% - 1.5px),currentColor calc(50% - 1.5px),currentColor calc(50% + 1.5px),transparent calc(50% + 1.5px));
+  opacity:.75;box-shadow:0 0 8px currentColor;
+}
+.music-icon::after{
+  content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(45deg);
+  width:6px;height:6px;background:#fff;
+  box-shadow:0 0 5px #fff,0 0 10px currentColor;
+}
+.music-icon.amber{color:var(--amber)}
+.music-icon.rose{color:var(--rose)}
+.music-icon.magenta{color:var(--magenta)}
 .music-icon.amber{background:var(--amber-dim);border-color:rgba(240,160,80,.2)}
 .music-icon.rose{background:var(--rose-dim);border-color:rgba(232,148,148,.2)}
 .music-icon.magenta{background:var(--magenta-dim);border-color:rgba(184,120,224,.2)}
+/* 大号十字星（音乐区装饰） */
+.big-star{
+  display:inline-block;width:48px;height:48px;position:relative;color:var(--cyan);
+}
+.big-star::before{
+  content:'';position:absolute;inset:0;
+  background:
+    linear-gradient(90deg,transparent calc(50% - 2px),currentColor calc(50% - 2px),currentColor calc(50% + 2px),transparent calc(50% + 2px)),
+    linear-gradient(0deg,transparent calc(50% - 2px),currentColor calc(50% - 2px),currentColor calc(50% + 2px),transparent calc(50% + 2px));
+  opacity:.78;box-shadow:0 0 14px currentColor;
+}
+.big-star::after{
+  content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%) rotate(45deg);
+  width:10px;height:10px;background:#fff;
+  box-shadow:0 0 8px #fff,0 0 20px var(--cyan);
+}
 .music-info .song{font-weight:600;font-size:.9rem}
 .music-info .artist{font-size:.76rem;color:var(--text-tertiary);margin-top:2px}
 
@@ -437,7 +502,7 @@ footer .quote{color:var(--cyan);font-weight:500;letter-spacing:.03em}
       <div class="hex-border"></div>
       <div class="hex-frame">
         <img src="头像.jpeg" alt="霍俊宇" onerror="this.style.display='none';this.parentElement.querySelector('.placeholder').style.display='flex'">
-        <div class="placeholder" style="display:none">🧑‍🚀</div>
+        <div class="placeholder" style="display:none"><span class="big-star"></span></div>
       </div>
     </div>
     <!-- Text -->
@@ -731,7 +796,7 @@ footer .quote{color:var(--cyan);font-weight:500;letter-spacing:.03em}
     </div>
 
     <div class="card col-3 glow-cyan" style="display:flex;flex-direction:column;justify-content:center;text-align:center">
-      <span style="font-size:2.2rem;margin-bottom:12px">🌌</span>
+      <span class="big-star" style="margin-bottom:12px"></span>
       <h3>听歌这件事</h3>
       <p>好的旋律会让人停下来——放下手里的事，认真听完，然后沉默五秒。上面三首，最近循环了很多遍，每一遍都像第一次。</p>
     </div>
