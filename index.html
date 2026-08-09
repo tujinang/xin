@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
@@ -360,6 +360,46 @@ footer .quote{color:var(--cyan);font-weight:500;letter-spacing:.03em}
   .card{padding:18px}
   .tl-header{flex-direction:column;gap:2px}
 }
+
+/* ================================================================
+   CERTIFICATE GALLERY
+   ================================================================ */
+.cert-gallery{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px;
+}
+.cert-gallery img{
+  width:100%;aspect-ratio:3/4;object-fit:cover;cursor:pointer;
+  border:1px solid var(--border);transition:var(--transition);
+  background:rgba(0,0,0,.2);
+}
+.cert-gallery img:hover{
+  border-color:var(--cyan);transform:scale(1.03);
+  box-shadow:0 0 14px rgba(0,212,224,.25);
+}
+
+/* ================================================================
+   LIGHTBOX
+   ================================================================ */
+.lightbox{
+  display:none;position:fixed;inset:0;z-index:9999;
+  background:rgba(3,10,24,.94);backdrop-filter:blur(12px);
+  -webkit-backdrop-filter:blur(12px);
+  align-items:center;justify-content:center;cursor:pointer;
+}
+.lightbox.show{display:flex}
+.lightbox img{
+  max-width:92vw;max-height:92vh;object-fit:contain;
+  border:1px solid var(--border);
+  box-shadow:0 0 60px rgba(0,212,224,.18);
+  animation:lbFadeIn .25s ease;
+}
+@keyframes lbFadeIn{from{opacity:0;transform:scale(.94)}to{opacity:1;transform:scale(1)}}
+.lightbox-close{
+  position:absolute;top:24px;right:32px;
+  font-size:2.4rem;color:var(--text-secondary);cursor:pointer;
+  transition:color .2s;line-height:1;z-index:1;
+}
+.lightbox-close:hover{color:var(--cyan)}
 </style>
 </head>
 <body>
@@ -376,9 +416,8 @@ footer .quote{color:var(--cyan);font-weight:500;letter-spacing:.03em}
     <span class="nav-name">HYPERION.OS</span>
     <ul class="nav-links">
       <li><a href="#about">舰长档案</a></li>
-      <li><a href="#edu">船员记录</a></li>
-      <li><a href="#exp">任务日志</a></li>
-      <li><a href="#projects">作战报告</a></li>
+      <li><a href="#skills">技能装备</a></li>
+      <li><a href="#projects">项目经历</a></li>
       <li><a href="#world">精神宇宙</a></li>
       <li><a href="#music">通讯频道</a></li>
     </ul>
@@ -405,19 +444,17 @@ footer .quote{color:var(--cyan);font-weight:500;letter-spacing:.03em}
     <div class="hero-text">
       <div class="sys-tag">SYS.ID // BRIDGE_COMMAND</div>
       <h1>霍俊宇<span class="hl">。</span></h1>
-      <p class="tagline">计算机科学 · 北京大学<br>一个在<strong>代码</strong>与<strong>故事</strong>之间穿梭的星际旅人。</p>
+      <p class="tagline">食品科学与工程 · 宁波大学<br>一个在<strong>代码</strong>与<strong>故事</strong>之间穿梭的星际旅人。</p>
       <div class="meta">
-        <span>◆ 广西</span><span>◆ PKU '26</span><span>◆ 后端 / 数据</span>
+        <span>◆ 广西</span><span>◆ NBU '26</span><span>◆ 后端 / 数据</span>
       </div>
       <div class="btn-row">
-        <a href="#exp" class="btn btn-primary">▶ 查看任务日志</a>
+        <a href="#world" class="btn btn-primary">▶ 进入精神宇宙</a>
         <a href="#world" class="btn btn-outline">◈ 进入精神宇宙</a>
       </div>
       <!-- Status Bar -->
       <div class="status-bar">
         <div class="status-item"><span class="status-dot online"></span> SYSTEMS ONLINE</div>
-        <div class="status-item"><span class="status-dot online"></span> GPA 3.8/4.0</div>
-        <div class="status-item"><span class="status-dot standby"></span> WWW'26 PENDING</div>
       </div>
     </div>
   </div>
@@ -435,152 +472,51 @@ footer .quote{color:var(--cyan);font-weight:500;letter-spacing:.03em}
   <div class="bento">
     <div class="card col-6 glow-cyan" style="text-align:center;padding:32px 28px">
       <p style="font-size:.93rem;line-height:1.9;color:var(--text-secondary);max-width:720px;margin:0 auto">
-        来自<strong style="color:var(--text)">广西</strong>，北京大学计算机系在读。喜欢写代码、看数据、做系统——但也沉迷于<strong style="color:var(--amber)">龙族</strong>里路明非的每一次"不要死"，折服于<strong style="color:var(--magenta)">道诡异仙</strong>那片分不清真妄的世界，在<strong style="color:var(--rose)">东野圭吾</strong>的恶意深渊里看见人性倒影。业余时间热衷于看那些「有梗但严肃」的视频，对数学抱有菜鸟级别的真诚热爱，对<strong style="color:var(--cyan)">奥特曼</strong>的光之羁绊深信不疑。正在努力成为一个既懂技术、又不失温度的人。
+        来自<strong style="color:var(--text)">广西</strong>，宁波大学食品科学与工程系在读。喜欢写代码、看数据、做系统——但也沉迷于<strong style="color:var(--amber)">龙族</strong>里路明非的每一次"不要死"，折服于<strong style="color:var(--magenta)">道诡异仙</strong>那片分不清真妄的世界，在<strong style="color:var(--rose)">东野圭吾</strong>的恶意深渊里看见人性倒影。业余时间热衷于看那些「有梗但严肃」的视频，对数学抱有菜鸟级别的真诚热爱，对<strong style="color:var(--cyan)">奥特曼</strong>的光之羁绊深信不疑。正在努力成为一个既懂技术、又不失温度的人。
       </p>
     </div>
-    <div class="card col-2" style="text-align:center">
-      <div class="stat">3.8</div><div class="stat-label">GPA / 4.0</div>
-    </div>
-    <div class="card col-2" style="text-align:center">
-      <div class="stat">8TB+</div><div class="stat-label">日均数据吞吐量</div>
-    </div>
-    <div class="card col-2" style="text-align:center">
-      <div class="stat">8500</div><div class="stat-label">QPS 峰值承载力</div>
-    </div>
   </div>
 </section>
 
-<!-- ================================================================
-     EDUCATION — 船员记录
-     ================================================================ -->
-<section id="edu" class="section reveal">
-  <div class="section-tag cyan">CREW_RECORD</div>
-  <h2 class="section-title">船员记录 · 教育背景</h2>
-
-  <div class="bento">
-    <div class="card col-4 accent-cyan">
-      <div class="tl-content" style="padding:0">
-        <div class="tl-header">
-          <h4>北京大学 · 计算机科学与技术 · 工学学士</h4>
-          <span class="tl-date">2022.09 – 2026.06</span>
-        </div>
-        <div class="tl-sub">GPA 3.8/4.0（专业前 10%）· 坐标: 北京</div>
-        <p style="margin-top:10px;font-size:.82rem;color:var(--text-secondary)">
-          ◆ 数据结构与算法(93) ◆ 操作系统(91) ◆ 计算机网络(90) ◆ 机器学习(95) ◆ 数据库系统(88) ◆ 离散数学(92)
-        </p>
-      </div>
-    </div>
-    <div class="card col-2 accent-amber" style="display:flex;flex-direction:column;justify-content:center">
-      <span class="card-icon">🏅</span>
-      <h3>授勋记录</h3>
-      <ul>
-        <li>校级一等奖学金（2023–2024）</li>
-        <li>优秀学生干部（2023）</li>
-      </ul>
-    </div>
-  </div>
-</section>
+<!-- EDUCATION SECTION REMOVED -->
 
 <!-- ================================================================
      SKILLS — 装备清单
      ================================================================ -->
 <section id="skills" class="section reveal">
   <div class="section-tag magenta">EQUIPMENT_MANIFEST</div>
-  <h2 class="section-title">装备清单 · 技术栈</h2>
+  <h2 class="section-title">装备清单 · 专业技能</h2>
 
   <div class="bento">
     <div class="card col-3 accent-cyan">
-      <span class="card-icon">⌨️</span>
-      <h3>编程语言</h3>
-      <div class="tag-row">
-        <span class="tag amber">Python</span><span class="tag amber">Java</span>
-        <span class="tag cyan">C++</span><span class="tag cyan">SQL</span>
-        <span class="tag white">JavaScript</span>
-      </div>
+      <span class="card-icon">🤖</span>
+      <h3>AI 开发与工具</h3>
+      <p>熟练使用 AI 辅助编程工具（Cursor、GitHub Copilot、通义灵码）进行快速原型开发，能够通过自然语言提示词驱动代码生成、调试与重构，较传统开发模式效率提升约 <span class="highlight">60%</span></p>
     </div>
     <div class="card col-3 accent-magenta">
-      <span class="card-icon">⚙️</span>
-      <h3>框架 & 工具</h3>
-      <div class="tag-row">
-        <span class="tag amber">Spring Boot</span><span class="tag cyan">Vue.js</span>
-        <span class="tag magenta">PyTorch</span><span class="tag white">TensorFlow</span>
-        <span class="tag cyan">Scikit-learn</span><span class="tag white">Docker</span>
-        <span class="tag amber">Git</span>
-      </div>
+      <span class="card-icon">☁️</span>
+      <h3>云计算与 AI 平台</h3>
+      <p>持有阿里云、华为云、科大讯飞多项 AI 认证，熟悉阿里云 PAI-EAS 模型部署、华为云 ModelArts 全流程开发、讯飞星火大模型 API 调用与微调，具备多平台 AI 解决方案集成能力</p>
     </div>
     <div class="card col-3 accent-amber">
-      <span class="card-icon">📊</span>
-      <h3>数据分析</h3>
-      <div class="tag-row">
-        <span class="tag amber">Pandas</span><span class="tag cyan">NumPy</span>
-        <span class="tag white">Matplotlib</span><span class="tag amber">Tableau</span>
-        <span class="tag cyan">Power BI</span>
-      </div>
+      <span class="card-icon">🎮</span>
+      <h3>游戏开发与图形</h3>
+      <p>能够使用 AI 代码生成技术实现 2D 游戏逻辑与粒子特效渲染，熟悉 Pygame、Canvas 等基础框架，理解游戏循环、碰撞检测、资源管理等核心机制</p>
     </div>
-    <div class="card col-3 accent-cyan">
-      <span class="card-icon">🗄️</span>
-      <h3>数据库 & 其他</h3>
-      <div class="tag-row">
-        <span class="tag cyan">MySQL</span><span class="tag white">PostgreSQL</span>
-        <span class="tag magenta">Redis</span><span class="tag white">Axure RP</span>
-        <span class="tag cyan">Figma</span><span class="tag white">Jira</span>
-      </div>
+    <div class="card col-3 accent-rose">
+      <span class="card-icon">📐</span>
+      <h3>数据分析与数学基础</h3>
+      <p>对数学建模与统计学习有浓厚兴趣，持续自学线性代数与微积分</p>
     </div>
     <div class="card col-6 glow-cyan" style="text-align:center">
       <span style="font-size:.82rem;color:var(--text-secondary);letter-spacing:.04em">
-        🌐 英语 CET-6（600）· 托福 105 · 流利学术读写与口语交流
+        ⌨️ 编程语言：Python（基础）
       </span>
     </div>
   </div>
 </section>
 
-<!-- ================================================================
-     EXPERIENCE — 任务日志
-     ================================================================ -->
-<section id="exp" class="section reveal">
-  <div class="section-tag amber">MISSION_LOG</div>
-  <h2 class="section-title">任务日志 · 实习经历</h2>
-
-  <!-- 字节跳动 -->
-  <div class="bento" style="margin-bottom:18px">
-    <div class="card col-6 accent-amber">
-      <div class="tl-content" style="padding:0">
-        <div class="tl-header">
-          <h4>◆ 字节跳动 · 后端开发实习生</h4>
-          <span class="tl-date">2025.03 – 2025.08</span>
-        </div>
-        <div class="tl-sub">数据平台部 · 坐标: 北京 · 任务周期: 6个月</div>
-        <ul>
-          <li>主导用户行为数据采集与清洗模块重构，设计并落地基于 <strong>Flink</strong> 的实时 ETL 流水线，数据清洗效率提升 <span class="highlight">45%</span>，日均处理 <span class="highlight">8TB+</span></li>
-          <li>独立开发数据质量监控平台核心告警模块，集成异常检测算法，异常发现时间从小时级 → <span class="highlight">分钟级</span>，误报率降至 <span class="highlight">3% 以下</span></li>
-          <li>重构数据查询 API，引入 Redis 缓存 + SQL 索引优化，QPS 从 1200 → <span class="highlight">8500</span>，响应时间降低 <span class="highlight">62%</span></li>
-          <li>编写单元测试 <span class="highlight">120+</span> 个，代码覆盖率 87%，参与 Code Review 40+ 次</li>
-          <li>Mentor「超出预期」评级 · 交付准时率 <span class="highlight">100%</span></li>
-        </ul>
-      </div>
-    </div>
-  </div>
-
-  <!-- 腾讯 -->
-  <div class="bento">
-    <div class="card col-6 accent-cyan">
-      <div class="tl-content" style="padding:0">
-        <div class="tl-header">
-          <h4>◆ 腾讯 · 数据分析实习生</h4>
-          <span class="tl-date">2024.07 – 2024.12</span>
-        </div>
-        <div class="tl-sub">微信支付事业部 · 坐标: 深圳 · 任务周期: 6个月</div>
-        <ul>
-          <li>搭建商户流失预警模型，基于 <strong>LightGBM</strong> 融合 23 个特征维度，预测准确率 <span class="highlight">89%</span>，提前预警 3.2 万家高危商户</li>
-          <li>主导 A/B 实验分析流程优化，设计标准化模板与自动化脚本，分析周期从 3 天 → <span class="highlight">4 小时</span>（效率提升 18 倍）</li>
-          <li>完成"春节红包活动"专项复盘，通过用户分群与漏斗分析定位瓶颈，输出 12 条建议，被采纳 <span class="highlight">7 条</span>，次年转化率提升 <span class="highlight">28%</span></li>
-          <li>构建商户经营健康度看板（Tableau），覆盖 15 项核心指标，服务运营团队 <span class="highlight">200+</span> 人，月均访问 3000+ 次</li>
-          <li>参与埋点规范 V2.0 设计，梳理 8 条核心行为路径，减少无效埋点 <span class="highlight">40%</span>，采集成本降低 25%</li>
-        </ul>
-      </div>
-    </div>
-  </div>
-</section>
+<!-- EXPERIENCE SECTION REMOVED -->
 
 <!-- ================================================================
      PROJECTS — 作战报告
@@ -590,75 +526,131 @@ footer .quote{color:var(--cyan);font-weight:500;letter-spacing:.03em}
   <h2 class="section-title">作战报告 · 项目经历</h2>
 
   <div class="bento">
-    <div class="card col-3 accent-magenta">
-      <span class="card-icon">📈</span>
-      <h3>「智投」智能投资组合管理系统</h3>
-      <p style="margin-bottom:6px;font-size:.78rem;color:var(--text-tertiary)">项目负责人 & 后端开发 · 2024.09 – 2025.01</p>
+    <div class="card col-3 accent-amber">
+      <span class="card-icon">🚀</span>
+      <h3>「银河防御」2D 飞行射击游戏</h3>
+      <p style="margin-bottom:6px;font-size:.78rem;color:var(--text-tertiary)">独立开发者</p>
       <ul>
-        <li>主导 4 人团队，后端 Spring Boot + MyBatis-Plus，前端 Vue3 + Element Plus</li>
-        <li>集成 MPT 与蒙特卡洛模拟，实现个性化资产配置与有效前沿曲线生成</li>
-        <li>对接东方财富 API，数据延迟 &lt;2 秒，支持 500+ 股票并发查询</li>
-        <li>RBAC + JWT 无状态认证，通过校级安全审计</li>
-        <li>🏆 学院"优秀毕业设计" · GitHub ⭐180+ · CSDN 推荐首页阅读 1.5w+</li>
+        <li>独立设计并完成一款名为"银河防御"的飞机大战主题 2D 射击游戏，全程使用 AI 编程助手进行代码生成与迭代</li>
+        <li>通过 AI 工具完成游戏音效、爆炸动画与背景滚动等视觉效果的快速集成，使整体用户体验提升显著</li>
       </ul>
     </div>
 
-    <div class="card col-3 accent-amber">
-      <span class="card-icon">🛒</span>
-      <h3>电商用户行为分析与个性化推荐系统</h3>
-      <p style="margin-bottom:6px;font-size:.78rem;color:var(--text-tertiary)">算法设计与实现 · 2024.03 – 2024.06</p>
+    <div class="card col-3 accent-magenta">
+      <span class="card-icon">✨</span>
+      <h3>「星语粒子」动态特效系统</h3>
+      <p style="margin-bottom:6px;font-size:.78rem;color:var(--text-tertiary)">独立开发者</p>
       <ul>
-        <li>Kaggle 500 万+ 用户行为记录，完整数据清洗与特征工程</li>
-        <li>协同过滤 + ALS 矩阵分解混合模型，Hit@10 达到 <span class="highlight">0.76</span></li>
-        <li>离线+在线两阶段推荐架构，毫秒级召回与精排</li>
-        <li>Flask API + ECharts 可视化前端</li>
-        <li>🏆 课程答辩 <span class="highlight">第二名（2/45）</span></li>
+        <li>设计并开发一套基于 HTML5 Canvas 与 JavaScript 的动态粒子特效系统，包含星空漫游场景</li>
+        <li>借助 AI 编程助手将自然语言描述的特效需求转化为可运行的粒子运动算法，实现粒子属性（速度、生命周期、颜色渐变）的灵活配置，代码复用率超过 <span class="highlight">70%</span></li>
+        <li>优化粒子系统性能，通过对象池模式减少垃圾回收开销，在 <span class="highlight">10000+</span> 粒子数量下仍保持 30fps 流畅运行，内存峰值控制在 200MB 以内</li>
+        <li>将特效系统封装为可嵌入网页的轻量级组件，提供 API 接口文档，被 2 个校园活动页面采用作为背景视觉，累计曝光量约 <span class="highlight">4000+</span> 次</li>
+      </ul>
+    </div>
+
+    <div class="card col-3 accent-cyan">
+      <span class="card-icon">📖</span>
+      <h3>文学作品深度分析</h3>
+      <p style="margin-bottom:6px;font-size:.78rem;color:var(--text-tertiary)">提示工程实践</p>
+      <ul>
+        <li>结合提示工程技巧，通过 Few-shot 与 Chain-of-Thought 优化输出质量，使人物关系抽取准确率达到约 <span class="highlight">85%</span></li>
+        <li>完成对《龙族》《道诡异仙》《恶意》等个人喜好书目的深度分析</li>
       </ul>
     </div>
   </div>
 </section>
 
 <!-- ================================================================
-     RESEARCH + AWARDS — R&D
+     CERTIFICATES — 认证勋章
      ================================================================ -->
-<section id="research" class="section reveal">
-  <div class="section-tag magenta">R&D_LAB</div>
-  <h2 class="section-title">研发日志 · 科研与荣誉</h2>
+<section id="certs" class="section reveal">
+  <div class="section-tag amber">CERTIFICATION</div>
+  <h2 class="section-title">认证勋章 · 证书与认证</h2>
 
   <div class="bento">
+    <!-- 阿里云 -->
+    <div class="card col-3 accent-cyan">
+      <span class="card-icon">☁️</span>
+      <h3>阿里云 AI 证书</h3>
+      <div class="cert-gallery">
+        <img src="certs/aliyun/01.jpg" alt="阿里云证书" loading="lazy" onclick="openLightbox(this)">
+        <img src="certs/aliyun/02.jpg" alt="阿里云证书" loading="lazy" onclick="openLightbox(this)">
+        <img src="certs/aliyun/03.png" alt="阿里云证书" loading="lazy" onclick="openLightbox(this)">
+        <img src="certs/aliyun/04.png" alt="阿里云证书" loading="lazy" onclick="openLightbox(this)">
+        <img src="certs/aliyun/05.png" alt="阿里云证书" loading="lazy" onclick="openLightbox(this)">
+        <img src="certs/aliyun/06.png" alt="阿里云证书" loading="lazy" onclick="openLightbox(this)">
+        <img src="certs/aliyun/07.png" alt="阿里云证书" loading="lazy" onclick="openLightbox(this)">
+        <img src="certs/aliyun/08.png" alt="阿里云证书" loading="lazy" onclick="openLightbox(this)">
+        <img src="certs/aliyun/09.png" alt="阿里云证书" loading="lazy" onclick="openLightbox(this)">
+      </div>
+    </div>
+    <!-- 华为云 -->
     <div class="card col-3 accent-magenta">
-      <span class="card-icon">🔬</span>
-      <h3>基于 GNN 的社交网络异常检测</h3>
-      <p style="font-size:.78rem;color:var(--text-tertiary);margin-bottom:8px">核心成员 · 2024.10 – 2025.04</p>
-      <ul>
-        <li>研究 GAT & GraphSAGE 在欺诈检测中的应用，对比 XGBoost、Random Forest 等传统方法</li>
-        <li>DGL 框架 + YelpChi 数据集，引入注意力机制与边特征聚合</li>
-        <li>F1-score：0.72 → <span class="highlight">0.86</span></li>
-        <li>论文已投稿 <strong>WWW 2026 Workshop</strong>（审稿中）</li>
-      </ul>
+      <span class="card-icon">🚩</span>
+      <h3>华为云 AI 证书</h3>
+      <div class="cert-gallery">
+        <img src="certs/huawei/01.png" alt="华为云证书" loading="lazy" onclick="openLightbox(this)">
+        <img src="certs/huawei/02.png" alt="华为云证书" loading="lazy" onclick="openLightbox(this)">
+        <img src="certs/huawei/03.png" alt="华为云证书" loading="lazy" onclick="openLightbox(this)">
+      </div>
     </div>
-
+    <!-- 科大讯飞 -->
     <div class="card col-3 accent-amber">
-      <span class="card-icon">🏆</span>
-      <h3>嘉奖与认证</h3>
-      <ul>
-        <li>全国大学生数学建模竞赛 <strong>省级一等奖</strong>（2023）</li>
-        <li>"挑战杯"课外学术科技作品竞赛 <strong>省级二等奖</strong>（2024）</li>
-        <li>北大黑客马拉松 <strong>最佳技术实现奖</strong>（2024）</li>
-        <li>Google Data Analytics Professional Certificate（2024）</li>
-        <li>AWS Certified Cloud Practitioner（2024）</li>
-        <li>校级优秀学生奖学金（2023、2024 连续两年）</li>
-      </ul>
+      <span class="card-icon">⭐</span>
+      <h3>科大讯飞 AI 证书</h3>
+      <div class="cert-gallery">
+        <img src="certs/xunfei/01.png" alt="科大讯飞证书" loading="lazy" onclick="openLightbox(this)">
+        <img src="certs/xunfei/02.png" alt="科大讯飞证书" loading="lazy" onclick="openLightbox(this)">
+        <img src="certs/xunfei/03.png" alt="科大讯飞证书" loading="lazy" onclick="openLightbox(this)">
+        <img src="certs/xunfei/04.png" alt="科大讯飞证书" loading="lazy" onclick="openLightbox(this)">
+      </div>
     </div>
+    <!-- Datawhale -->
+    <div class="card col-3 accent-rose">
+      <span class="card-icon">🐳</span>
+      <h3>Datawhale 证书</h3>
+      <div class="cert-gallery">
+        <img src="certs/datawhale/01.png" alt="Datawhale证书" loading="lazy" onclick="openLightbox(this)">
+        <img src="certs/datawhale/02.png" alt="Datawhale证书" loading="lazy" onclick="openLightbox(this)">
+        <img src="certs/datawhale/03.png" alt="Datawhale证书" loading="lazy" onclick="openLightbox(this)">
+      </div>
+    </div>
+  </div>
+</section>
 
-    <div class="card col-6 glow-cyan" style="text-align:center">
-      <span class="card-icon">🌐</span>
-      <h3>其他任务记录</h3>
-      <p style="max-width:700px;margin:0 auto;font-size:.84rem">
-        北大计算机学院学生会技术部部长（2023–2024）—— 组织"1024 程序员节"，邀请业界嘉宾 8 位，参与 300+ 人；搭建学院活动小程序，服务 2000+ 人次。<br>
-        <strong>开源贡献者</strong> —— Apache DolphinScheduler 社区，提交 PR 被合并。<br>
-        <strong>技术博客</strong> —— 掘金/CSDN 累计 25 篇，总阅读量 6w+，获赞 1200+。
-      </p>
+<!-- Lightbox overlay -->
+<div id="lightbox" class="lightbox" onclick="closeLightbox()">
+  <span class="lightbox-close">&times;</span>
+  <img id="lightbox-img" src="" alt="证书预览">
+</div>
+
+<!-- ================================================================
+     PERSONAL TRAITS — 个人特质
+     ================================================================ -->
+<section id="traits" class="section reveal">
+  <div class="section-tag rose">PERSONAL_MATRIX</div>
+  <h2 class="section-title">个人特质 · 兴趣与信念</h2>
+
+  <div class="bento">
+    <div class="card col-3 accent-cyan">
+      <span class="card-icon">⚡</span>
+      <h3>AI 技术敏感度</h3>
+      <p>对 AI 技术演进保持高度敏感，持续关注大模型与 AI 编程领域前沿，习惯将新工具快速融入个人工作流，以"效率倍增"为实践准则</p>
+    </div>
+    <div class="card col-3 accent-magenta">
+      <span class="card-icon">🎯</span>
+      <h3>内容创作与深度思考</h3>
+      <p>热爱内容创作与深度思考，长期关注兼具幽默与哲理的视频鉴赏者，善于从叙事结构、用户心理等角度解构作品，具备较强的共情与逻辑分析能力</p>
+    </div>
+    <div class="card col-3 accent-amber">
+      <span class="card-icon">📊</span>
+      <h3>数学与逻辑推理</h3>
+      <p>对数学与逻辑推理抱有浓厚兴趣，虽自谦"较菜"，但持续通过网课与习题训练夯实基础，近期重点攻克概率统计与线性代数在 AI 领域的应用</p>
+    </div>
+    <div class="card col-3 accent-rose">
+      <span class="card-icon">🌌</span>
+      <h3>流行文化涉猎</h3>
+      <p>对流行文化涉猎广泛，熟悉《龙族》《道诡异仙》等网络文学作品，对特摄文化（奥特曼系列）有一定研究，这些跨领域积累常为创意设计提供多元灵感</p>
     </div>
   </div>
 </section>
@@ -752,7 +744,7 @@ footer .quote{color:var(--cyan);font-weight:500;letter-spacing:.03em}
 <footer>
   <p>感谢你穿越星际来到这里 🚀</p>
   <p class="quote">「光は絆だ。受け継ぐ者がいる。」</p>
-  <p style="margin-top:6px">霍俊宇 · 广西 · 北京大学 · HYPERION BRIDGE</p>
+  <p style="margin-top:6px">霍俊宇 · 广西 · 宁波大学 · HYPERION BRIDGE</p>
 </footer>
 
 </div><!-- /container -->
@@ -948,6 +940,26 @@ document.querySelectorAll('a[href^="#"]').forEach(function(a){
     if(current) current.link.classList.add('active');
   });
 })();
+
+// ================================================================
+// LIGHTBOX — certificate image viewer
+// ================================================================
+function openLightbox(img){
+  var lb = document.getElementById('lightbox');
+  var lbImg = document.getElementById('lightbox-img');
+  lbImg.src = img.src;
+  lb.classList.add('show');
+  document.body.style.overflow = 'hidden';
+}
+function closeLightbox(){
+  var lb = document.getElementById('lightbox');
+  lb.classList.remove('show');
+  document.body.style.overflow = '';
+}
+document.addEventListener('keydown', function(e){
+  if(e.key === 'Escape') closeLightbox();
+});
 </script>
 </body>
 </html>
+
