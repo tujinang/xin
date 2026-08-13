@@ -28,6 +28,11 @@
     .title{font-weight:800;letter-spacing:1px;color:#d8e5ff}.small{font-size:12px;color:var(--sub)}
     .barBox{width:100%;height:14px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden;border:1px solid rgba(255,255,255,.12);margin-top:8px}
     .barFill{height:100%;width:50%;background:linear-gradient(90deg,#57ffbe,#71d8ff,#8f7bff);transition:width .15s linear}
+    .healthRow{margin-top:10px;gap:12px}.healthLabel{min-width:88px;color:#ffdbe6;font-weight:800}
+    .healthBarBox{position:relative;flex:1;height:16px;margin:0;border-color:rgba(255,108,152,.4);box-shadow:inset 0 0 8px rgba(0,0,0,.45)}
+    .healthBarFill{height:100%;width:100%;border-radius:inherit;background:linear-gradient(90deg,#ff4f78,#ff8b6a,#ffd36b);box-shadow:0 0 12px rgba(255,108,152,.5);transition:width .22s ease,background .22s ease,box-shadow .22s ease}
+    .healthBarFill.warning{background:linear-gradient(90deg,#ff315f,#ff6c98);box-shadow:0 0 18px rgba(255,49,95,.85);animation:healthPulse .75s ease-in-out infinite alternate}
+    @keyframes healthPulse{from{filter:brightness(.85)}to{filter:brightness(1.35)}}
     #bossHud{top:14px;left:50%;transform:translateX(-50%);width:min(980px,calc(100vw - 40px));opacity:0;transition:opacity .25s}
     #bossHud.active{opacity:1}
     #bossName{display:flex;justify-content:space-between;align-items:center;font-weight:800;color:#ffe3ee;margin-bottom:8px;font-size:15px}
@@ -86,7 +91,8 @@
   <div id="topLeft" class="hud">
     <div class="panel">
       <div class="row"><div class="title">赛博幻想空战 · 稳定增强版</div><div class="small" id="stageText">第 1 关</div></div>
-      <div class="row" style="margin-top:8px;"><div>分数：<span id="scoreText">0</span></div><div>生命：<span id="lifeText">8</span></div><div>炸弹：<span id="bombText">3</span></div></div>
+      <div class="row" style="margin-top:8px;"><div>分数：<span id="scoreText">0</span></div><div>炸弹：<span id="bombText">3</span></div></div>
+      <div class="row healthRow"><div class="healthLabel">生命 <span id="lifeText">8 / 8</span></div><div id="healthBarBox" class="barBox healthBarBox" role="progressbar" aria-label="玩家战斗机生命值" aria-valuemin="0" aria-valuemax="8" aria-valuenow="8"><div id="healthBar" class="healthBarFill"></div></div></div>
       <div class="row" style="margin-top:8px;"><div>等级：<span id="pLvText">1</span></div><div>经验：<span id="expText">0 / 80</span></div></div>
       <div class="barBox"><div id="expBar" class="barFill"></div></div>
     </div>
@@ -164,7 +170,7 @@ addEventListener('resize',()=>{W = canvas.width = innerWidth; H = canvas.height 
 
 const $ = s => document.querySelector(s);
 const ui = {
-  score:$('#scoreText'), life:$('#lifeText'), bomb:$('#bombText'), pLv:$('#pLvText'),
+  score:$('#scoreText'), life:$('#lifeText'), healthBar:$('#healthBar'), healthBarBox:$('#healthBarBox'), bomb:$('#bombText'), pLv:$('#pLvText'),
   exp:$('#expText'), expBar:$('#expBar'), stage:$('#stageText'),
   weapon:$('#weaponText'), nextUnlock:$('#nextUnlockText'),
   bossHud:$('#bossHud'), bossBar:$('#bossBar'), bossHp:$('#bossHpText'), bossName:$('#bossName span'),
@@ -269,7 +275,12 @@ function setCd(mask,txt,v){ if(v>0){mask.classList.add('active');txt.textContent
 
 function updateUI(){
   ui.score.textContent = player.score;
-  ui.life.textContent = player.life;
+  const healthPercent = Math.max(0, Math.min(100, player.life / player.maxLife * 100));
+  ui.life.textContent = `${Math.max(0, player.life)} / ${player.maxLife}`;
+  ui.healthBar.style.width = `${healthPercent}%`;
+  ui.healthBar.classList.toggle('warning', healthPercent <= 30);
+  ui.healthBarBox.setAttribute('aria-valuemax', player.maxLife);
+  ui.healthBarBox.setAttribute('aria-valuenow', Math.max(0, player.life));
   ui.bomb.textContent = player.bomb;
   ui.pLv.textContent = player.level;
   ui.exp.textContent = `${Math.floor(player.exp)} / ${player.nextExp}`;
