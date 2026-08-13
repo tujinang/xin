@@ -81,10 +81,13 @@
     .btns{display:flex;gap:12px;flex-wrap:wrap;margin-top:18px}
     button{pointer-events:auto;border:none;border-radius:14px;padding:12px 18px;font-size:15px;font-weight:800;color:white;background:linear-gradient(135deg,#71d8ff,#8a77ff);cursor:pointer}
     button.alt{background:linear-gradient(135deg,#57ffbe,#71d8ff)} button.warn{background:linear-gradient(135deg,#ff8aa8,#ffb16c)}
-    .bossSelect{margin-top:22px;padding-top:16px;border-top:1px solid rgba(180,210,255,.18)}
-    .bossSelectTitle{font-size:13px;font-weight:800;color:#dce8ff;margin-bottom:10px}.bossButtons{display:flex;gap:8px;flex-wrap:wrap}
-    .bossButtons button{padding:8px 11px;font-size:12px;background:linear-gradient(135deg,rgba(56,116,210,.92),rgba(132,83,210,.92))}
-    .bossButtons .empty{font-size:12px;color:#8fa7d9}
+    .stageMenu{width:min(940px,94vw);max-height:90vh;overflow:auto}.stageMenuHead{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+    .stageGrid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-top:20px}
+    .stageCard{position:relative;padding:14px;border-radius:16px;border:1px solid rgba(145,185,255,.25);background:linear-gradient(145deg,rgba(35,48,96,.92),rgba(14,18,48,.94));min-height:160px}
+    .stageCard.cleared{border-color:rgba(87,255,190,.45)}.stageCard.locked{filter:grayscale(.8);opacity:.45}
+    .stageNumber{font-size:11px;color:#89a6dc;letter-spacing:1px}.stageBoss{font-size:14px;font-weight:900;color:#edf4ff;margin:7px 0 3px}.stageSub{font-size:11px;color:#9fb5e8}.stageStatus{margin:10px 0;font-size:11px;color:#69e8b6}
+    .stageActions{display:flex;gap:6px;flex-wrap:wrap}.stageActions button{padding:7px 9px;border-radius:9px;font-size:11px}.stageActions .bossDirect{background:linear-gradient(135deg,#a36dff,#ff6c98)}
+    @media(max-width:760px){.stageGrid{grid-template-columns:repeat(2,1fr)}}
     @media (max-width:900px){#bottomRight{width:min(92vw,360px)}.skillGrid{grid-template-columns:1fr}#topLeft,#controls{max-width:min(92vw,430px)}}
   </style>
 </head>
@@ -139,9 +142,16 @@
       <p>稳定增强版。已提高玩家生存能力，并显著降低进入 Boss 战的门槛。</p>
       <div class="btns">
         <button id="startBtn">开始游戏</button>
+        <button id="stageSelectBtn">选择关卡</button>
         <button class="alt" id="helpBtn">玩法说明</button>
       </div>
-      <div class="bossSelect"><div class="bossSelectTitle">已通关 Boss · 快速挑战（保留最高战机等级）</div><div id="bossButtons" class="bossButtons"></div></div>
+    </div>
+  </div>
+
+  <div id="stageOverlay" class="overlay">
+    <div class="menu stageMenu">
+      <div class="stageMenuHead"><div><h1>星域关卡选择</h1><p>选择已解锁关卡继续作战；已通关关卡可直接挑战 Boss。战机保留历史最高等级。</p></div><button class="warn" id="closeStageBtn">返回</button></div>
+      <div id="stageGrid" class="stageGrid"></div>
     </div>
   </div>
 
@@ -183,8 +193,8 @@ const ui = {
   cd1:$('#cd1'), cd2:$('#cd2'), cd3:$('#cd3'), cd4:$('#cd4'),
   cd1t:$('#cd1t'), cd2t:$('#cd2t'), cd3t:$('#cd3t'), cd4t:$('#cd4t'),
   skill2:$('#skill2'), skill3:$('#skill3'), skill4:$('#skill4'),
-  start:$('#startOverlay'), pause:$('#pauseOverlay'), end:$('#endOverlay'),
-  endTitle:$('#endTitle'), endDesc:$('#endDesc'), bossButtons:$('#bossButtons')
+  start:$('#startOverlay'), pause:$('#pauseOverlay'), end:$('#endOverlay'), stageOverlay:$('#stageOverlay'),
+  endTitle:$('#endTitle'), endDesc:$('#endDesc'), stageGrid:$('#stageGrid')
 };
 
 const GameState = {
@@ -195,6 +205,7 @@ const GameState = {
 };
 
 let state = GameState.MENU;
+let stageSelectOpen = false;
 let gameOver = false;
 let started = false;
 let pendingNextStageTimer = null;
@@ -228,19 +239,21 @@ function saveProgress(){
   progress.level = Math.max(progress.level, player.level);
   localStorage.setItem('galaxyDefenseClearedBosses', progress.cleared);
   localStorage.setItem('galaxyDefenseHighestLevel', progress.level);
-  renderBossButtons();
+  renderStageGrid();
 }
-function renderBossButtons(){
-  ui.bossButtons.innerHTML='';
-  if(progress.cleared===0){
-    ui.bossButtons.innerHTML='<span class="empty">通关任意 Boss 后即可解锁快速挑战。</span>';
-    return;
-  }
-  bossList.slice(0,progress.cleared).forEach((b,i)=>{
-    const btn=document.createElement('button');
-    btn.textContent=`${i+1}. ${b.name}`;
-    btn.onclick=()=>startBossChallenge(i+1);
-    ui.bossButtons.appendChild(btn);
+function renderStageGrid(){
+  ui.stageGrid.innerHTML='';
+  const unlocked=Math.min(10,progress.cleared+1);
+  bossList.forEach((b,i)=>{
+    const stageNo=i+1,cleared=stageNo<=progress.cleared,locked=stageNo>unlocked;
+    const card=document.createElement('div');card.className=`stageCard${cleared?' cleared':''}${locked?' locked':''}`;
+    card.innerHTML=`<div class="stageNumber">STAGE ${String(stageNo).padStart(2,'0')}</div><div class="stageBoss">${b.name}</div><div class="stageSub">${b.sub}</div><div class="stageStatus">${locked?'🔒 未解锁':cleared?'✓ 已通关':'◆ 当前进度'}</div><div class="stageActions"></div>`;
+    const actions=card.querySelector('.stageActions');
+    if(!locked){
+      const enter=document.createElement('button');enter.textContent='进入关卡';enter.onclick=()=>startSelectedStage(stageNo);actions.appendChild(enter);
+      if(cleared){const direct=document.createElement('button');direct.className='bossDirect';direct.textContent='直战 Boss';direct.onclick=()=>startBossChallenge(stageNo);actions.appendChild(direct);}
+    }
+    ui.stageGrid.appendChild(card);
   });
 }
 
@@ -262,7 +275,8 @@ function setOverlay(overlay, visible){
   overlay.style.pointerEvents = visible ? 'auto' : 'none';
 }
 function syncOverlays(){
-  setOverlay(ui.start, state === GameState.MENU);
+  setOverlay(ui.start, state === GameState.MENU && !stageSelectOpen);
+  setOverlay(ui.stageOverlay, state === GameState.MENU && stageSelectOpen);
   setOverlay(ui.pause, state === GameState.PAUSED);
   setOverlay(ui.end, state === GameState.ENDED);
 }
@@ -1030,6 +1044,18 @@ function startBossChallenge(targetStage){
   spawnBoss();
   updateUI();
 }
+function startSelectedStage(targetStage){
+  if(targetStage<1||targetStage>progress.cleared+1) return;
+  started=true;
+  resetGame();
+  stage=targetStage;
+  applySavedLevel();
+  state=GameState.PLAYING;
+  stageSelectOpen=false;
+  syncOverlays();
+  showMsg(`第 ${stage} 关`,stage===1?'星海启程':'继续深入星域',1800);
+  updateUI();
+}
 function pauseGame(){
   if(state !== GameState.PLAYING) return;
   state = GameState.PAUSED;
@@ -1075,6 +1101,8 @@ canvas.addEventListener('mousemove',e=>{
 canvas.addEventListener('mouseleave',()=>mouse.active=false);
 
 $('#startBtn').onclick = () => { startGame(); };
+$('#stageSelectBtn').onclick = () => { stageSelectOpen=true; renderStageGrid(); syncOverlays(); };
+$('#closeStageBtn').onclick = () => { stageSelectOpen=false; syncOverlays(); };
 $('#helpBtn').onclick = () => {
   alert("操作：鼠标/WASD/方向键移动，Z/X/C/V使用技能，P或空格暂停，R重开。通关后的 Boss 可在开始界面直接挑战并保留最高战机等级；Boss 战中会出现回血、护盾和技能刷新补给。");
 };
@@ -1083,7 +1111,7 @@ $('#restartBtn1').onclick = () => { startGame(); };
 $('#restartBtn2').onclick = () => { startGame(); };
 
 syncOverlays();
-renderBossButtons();
+renderStageGrid();
 updateUI();
 loop();
 </script>
