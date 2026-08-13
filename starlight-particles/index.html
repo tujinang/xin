@@ -1,0 +1,1119 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>赛博幻想飞机大战 · 稳定增强版</title>
+  <style>
+    :root{
+      --bg1:#050814; --bg2:#0b1230; --bg3:#150a28;
+      --panel:rgba(14,18,40,.76); --border:rgba(156,190,255,.28);
+      --text:#ecf3ff; --sub:#9fb5ff; --a1:#71d8ff; --a2:#a36dff; --a3:#57ffbe;
+      --danger:#ff6c98; --gold:#ffd36b;
+      --shadow:0 0 18px rgba(90,160,255,.18),0 0 38px rgba(160,90,255,.1);
+    }
+    *{box-sizing:border-box;margin:0;padding:0;user-select:none}
+    html,body{width:100%;height:100%;overflow:hidden;background:
+      radial-gradient(circle at 20% 15%, rgba(120,80,255,.12), transparent 20%),
+      radial-gradient(circle at 80% 25%, rgba(80,220,255,.08), transparent 22%),
+      radial-gradient(circle at 50% 70%, rgba(80,255,180,.06), transparent 28%),
+      linear-gradient(180deg, var(--bg2) 0%, var(--bg1) 55%, #03050e 100%);
+      color:var(--text);font-family:"Microsoft YaHei","Segoe UI",sans-serif}
+    #wrap{position:relative;width:100vw;height:100vh;overflow:hidden}
+    canvas{display:block;width:100vw;height:100vh;image-rendering:pixelated;image-rendering:crisp-edges}
+    .hud{position:absolute;z-index:10;pointer-events:none}
+    .panel{background:var(--panel);border:1px solid var(--border);box-shadow:var(--shadow);border-radius:14px;padding:10px 14px;backdrop-filter:blur(8px)}
+    #topLeft{top:16px;left:16px;display:flex;flex-direction:column;gap:10px;max-width:430px}
+    .row{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:14px}
+    .title{font-weight:800;letter-spacing:1px;color:#d8e5ff}.small{font-size:12px;color:var(--sub)}
+    .barBox{width:100%;height:14px;border-radius:999px;background:rgba(255,255,255,.08);overflow:hidden;border:1px solid rgba(255,255,255,.12);margin-top:8px}
+    .barFill{height:100%;width:50%;background:linear-gradient(90deg,#57ffbe,#71d8ff,#8f7bff);transition:width .15s linear}
+    .healthRow{margin-top:10px;gap:12px}.healthLabel{min-width:88px;color:#ffdbe6;font-weight:800}
+    .healthBarBox{position:relative;flex:1;height:16px;margin:0;border-color:rgba(255,108,152,.4);box-shadow:inset 0 0 8px rgba(0,0,0,.45)}
+    .healthBarFill{height:100%;width:100%;border-radius:inherit;background:linear-gradient(90deg,#ff4f78,#ff8b6a,#ffd36b);box-shadow:0 0 12px rgba(255,108,152,.5);transition:width .22s ease,background .22s ease,box-shadow .22s ease}
+    .healthBarFill.warning{background:linear-gradient(90deg,#ff315f,#ff6c98);box-shadow:0 0 18px rgba(255,49,95,.85);animation:healthPulse .75s ease-in-out infinite alternate}
+    @keyframes healthPulse{from{filter:brightness(.85)}to{filter:brightness(1.35)}}
+    #bossHud{top:14px;left:50%;transform:translateX(-50%);width:min(980px,calc(100vw - 40px));opacity:0;transition:opacity .25s}
+    #bossHud.active{opacity:1}
+    #bossName{display:flex;justify-content:space-between;align-items:center;font-weight:800;color:#ffe3ee;margin-bottom:8px;font-size:15px}
+    #bossBarWrap{height:20px;border-radius:999px;overflow:hidden;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.08)}
+    #bossBar{width:100%;height:100%;background:linear-gradient(90deg,#ff5c8d,#ff7e74,#ffc14d);transition:width .1s linear}
+    #bottomRight{right:16px;bottom:16px;width:360px;display:flex;flex-direction:column;gap:10px}
+    .skillsTitle{font-size:15px;font-weight:800;margin-bottom:6px}
+    .skillGrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .skillCard{position:relative;min-height:102px;border-radius:16px;overflow:hidden;border:1px solid rgba(164,197,255,.28);
+      background:
+        radial-gradient(circle at 25% 25%, rgba(255,255,255,.14), transparent 18%),
+        radial-gradient(circle at 70% 80%, rgba(160,90,255,.20), transparent 35%),
+        linear-gradient(145deg, rgba(40,54,108,.88), rgba(18,20,52,.86));
+      padding:10px}
+    .skillIcon{width:44px;height:44px;border-radius:10px;margin-bottom:8px;border:1px solid rgba(255,255,255,.22);position:relative;overflow:hidden}
+    .burst{background:radial-gradient(circle at 50% 50%, rgba(190,245,255,.95), rgba(113,216,255,.55) 35%, rgba(40,70,150,.2) 60%, transparent 72%), linear-gradient(135deg, rgba(89,255,199,.25), rgba(163,109,255,.35))}
+    .beam{background:linear-gradient(90deg, rgba(163,109,255,.15), rgba(113,216,255,.12))}
+    .beam::before{content:"";position:absolute;left:18px;top:4px;width:8px;height:36px;background:linear-gradient(180deg,#d9f8ff,#8be4ff,#6ba2ff,#9f77ff)}
+    .shield{background:linear-gradient(135deg, rgba(87,255,190,.15), rgba(113,216,255,.20))}
+    .shield::before{content:"";position:absolute;inset:7px;border-radius:50%;border:3px solid rgba(120,255,220,.85)}
+    .overdrive{background:linear-gradient(135deg, rgba(255,211,107,.16), rgba(163,109,255,.25))}
+    .overdrive::before,.overdrive::after{content:"";position:absolute;background:linear-gradient(180deg,#ffe88a,#ffbf47,#a36dff);border-radius:6px}
+    .overdrive::before{width:8px;height:30px;left:10px;top:7px;transform:rotate(30deg)}
+    .overdrive::after{width:8px;height:30px;right:10px;top:7px;transform:rotate(-30deg)}
+    .skillName{font-size:13px;font-weight:800}.skillHint{font-size:11px;color:#a7bbff;margin-top:4px;line-height:1.35}
+    .skillKey{position:absolute;top:8px;right:8px;min-width:24px;height:24px;border-radius:8px;display:grid;place-items:center;font-size:12px;font-weight:900;background:linear-gradient(135deg, rgba(113,216,255,.85), rgba(163,109,255,.85))}
+    .locked{filter:grayscale(.45) brightness(.8);opacity:.6}
+    .cooldown{position:absolute;inset:0;background:rgba(4,8,20,.5);display:none}.cooldown.active{display:block}
+    .cooldownText{position:absolute;inset:0;display:grid;place-items:center;color:#fff;font-weight:900;font-size:20px}
+    #controls{position:absolute;left:16px;bottom:16px;max-width:430px}
+    #controls .panel{font-size:12px;line-height:1.55;color:#bdd0ff}
+    .hot{color:#fff0af;font-weight:800}
+    #centerMsg{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:11;text-align:center;pointer-events:none;opacity:0;transition:opacity .3s}
+    #centerMsg.show{opacity:1}
+    #centerMsg .big{font-size:clamp(28px,4vw,54px);font-weight:900;letter-spacing:3px}
+    #centerMsg .mid{margin-top:8px;font-size:clamp(14px,1.5vw,20px);color:#cad9ff}
+    .overlay{position:absolute;inset:0;z-index:20;display:none;align-items:center;justify-content:center;background:rgba(2,4,14,.45);backdrop-filter:blur(6px)}
+    .overlay.show{display:flex}
+    .menu{width:min(760px,92vw);padding:28px;border-radius:22px;background:
+      radial-gradient(circle at 20% 20%, rgba(120,90,255,.18), transparent 22%),
+      radial-gradient(circle at 80% 70%, rgba(80,220,255,.14), transparent 22%),
+      linear-gradient(145deg, rgba(22,28,64,.94), rgba(8,10,28,.96));
+      border:1px solid rgba(180,210,255,.28)}
+    .menu h1{font-size:clamp(28px,4vw,54px);letter-spacing:2px;margin-bottom:8px}
+    .menu p{color:#bfd0ff;line-height:1.7}
+    .btns{display:flex;gap:12px;flex-wrap:wrap;margin-top:18px}
+    button{pointer-events:auto;border:none;border-radius:14px;padding:12px 18px;font-size:15px;font-weight:800;color:white;background:linear-gradient(135deg,#71d8ff,#8a77ff);cursor:pointer}
+    button.alt{background:linear-gradient(135deg,#57ffbe,#71d8ff)} button.warn{background:linear-gradient(135deg,#ff8aa8,#ffb16c)}
+    .stageMenu{width:min(940px,94vw);max-height:90vh;overflow:auto}.stageMenuHead{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+    .stageGrid{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-top:20px}
+    .stageCard{position:relative;padding:14px;border-radius:16px;border:1px solid rgba(145,185,255,.25);background:linear-gradient(145deg,rgba(35,48,96,.92),rgba(14,18,48,.94));min-height:160px}
+    .stageCard.cleared{border-color:rgba(87,255,190,.45)}.stageCard.locked{filter:grayscale(.8);opacity:.45}
+    .stageNumber{font-size:11px;color:#89a6dc;letter-spacing:1px}.stageBoss{font-size:14px;font-weight:900;color:#edf4ff;margin:7px 0 3px}.stageSub{font-size:11px;color:#9fb5e8}.stageStatus{margin:10px 0;font-size:11px;color:#69e8b6}
+    .stageActions{display:flex;gap:6px;flex-wrap:wrap}.stageActions button{padding:7px 9px;border-radius:9px;font-size:11px}.stageActions .bossDirect{background:linear-gradient(135deg,#a36dff,#ff6c98)}
+    @media(max-width:760px){.stageGrid{grid-template-columns:repeat(2,1fr)}}
+    @media (max-width:900px){#bottomRight{width:min(92vw,360px)}.skillGrid{grid-template-columns:1fr}#topLeft,#controls{max-width:min(92vw,430px)}}
+  </style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="game"></canvas>
+
+  <div id="topLeft" class="hud">
+    <div class="panel">
+      <div class="row"><div class="title">赛博幻想空战 · 稳定增强版</div><div class="small" id="stageText">第 1 关</div></div>
+      <div class="row" style="margin-top:8px;"><div>分数：<span id="scoreText">0</span></div><div>炸弹：<span id="bombText">3</span></div></div>
+      <div class="row healthRow"><div class="healthLabel">生命 <span id="lifeText">8 / 8</span></div><div id="healthBarBox" class="barBox healthBarBox" role="progressbar" aria-label="玩家战斗机生命值" aria-valuemin="0" aria-valuemax="8" aria-valuenow="8"><div id="healthBar" class="healthBarFill"></div></div></div>
+      <div class="row" style="margin-top:8px;"><div>等级：<span id="pLvText">1</span></div><div>经验：<span id="expText">0 / 80</span></div></div>
+      <div class="barBox"><div id="expBar" class="barFill"></div></div>
+    </div>
+    <div class="panel">
+      <div class="small">当前火力：<span id="weaponText" class="hot">双翼灵击</span><br>下次解锁：<span id="nextUnlockText" class="hot">三向灵羽</span></div>
+    </div>
+  </div>
+
+  <div id="bossHud" class="hud panel">
+    <div id="bossName"><span>Boss：虚渊·青鸾机神</span><span id="bossHpText">100%</span></div>
+    <div id="bossBarWrap"><div id="bossBar"></div></div>
+  </div>
+
+  <div id="bottomRight" class="hud">
+    <div class="panel">
+      <div class="skillsTitle">灵装技能面板</div>
+      <div class="skillGrid">
+        <div class="skillCard" id="skill1"><div class="skillKey">Z</div><div class="skillIcon burst"></div><div class="skillName">星涡散华</div><div class="skillHint">清屏爆发，湮灭附近敌弹并重创敌军。</div><div class="cooldown" id="cd1"><div class="cooldownText" id="cd1t">0</div></div></div>
+        <div class="skillCard locked" id="skill2"><div class="skillKey">X</div><div class="skillIcon beam"></div><div class="skillName">紫电贯星</div><div class="skillHint">3级解锁。高能贯穿光束，持续打击前方。</div><div class="cooldown" id="cd2"><div class="cooldownText" id="cd2t">0</div></div></div>
+        <div class="skillCard locked" id="skill3"><div class="skillKey">C</div><div class="skillIcon shield"></div><div class="skillName">苍穹结界</div><div class="skillHint">5级解锁。短时护盾，吸收伤害并弹散敌弹。</div><div class="cooldown" id="cd3"><div class="cooldownText" id="cd3t">0</div></div></div>
+        <div class="skillCard locked" id="skill4"><div class="skillKey">V</div><div class="skillIcon overdrive"></div><div class="skillName">神乐超载</div><div class="skillHint">7级解锁。极限火力，射速与弹幕密度飙升。</div><div class="cooldown" id="cd4"><div class="cooldownText" id="cd4t">0</div></div></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="controls" class="hud">
+    <div class="panel">
+      <span class="hot">鼠标</span> 或 <span class="hot">WASD / 方向键</span> 移动，
+      <span class="hot">Z/X/C/V</span> 使用技能，
+      <span class="hot">P 或 空格</span> 暂停，
+      <span class="hot">R</span> 重新开始。
+    </div>
+  </div>
+
+  <div id="centerMsg"><div class="big" id="msgBig">第 1 关</div><div class="mid" id="msgMid">星海启程</div></div>
+
+  <div id="startOverlay" class="overlay show">
+    <div class="menu">
+      <h1>赛博幻想飞机大战</h1>
+      <p>稳定增强版。已提高玩家生存能力，并显著降低进入 Boss 战的门槛。</p>
+      <div class="btns">
+        <button id="startBtn">开始游戏</button>
+        <button id="stageSelectBtn">选择关卡</button>
+        <button class="alt" id="helpBtn">玩法说明</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="stageOverlay" class="overlay">
+    <div class="menu stageMenu">
+      <div class="stageMenuHead"><div><h1>星域关卡选择</h1><p>选择已解锁关卡继续作战；已通关关卡可直接挑战 Boss。战机保留历史最高等级。</p></div><button class="warn" id="closeStageBtn">返回</button></div>
+      <div id="stageGrid" class="stageGrid"></div>
+    </div>
+  </div>
+
+  <div id="pauseOverlay" class="overlay">
+    <div class="menu">
+      <h1>已暂停</h1>
+      <p>按 <b>P</b> / <b>空格</b> 继续，或点击下方按钮。</p>
+      <div class="btns">
+        <button id="resumeBtn">继续战斗</button>
+        <button class="warn" id="restartBtn1">重新开始</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="endOverlay" class="overlay">
+    <div class="menu">
+      <h1 id="endTitle">战斗结束</h1>
+      <p id="endDesc">你已完成星海试炼。</p>
+      <div class="btns">
+        <button id="restartBtn2">重新开始</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('game');
+const ctx = canvas.getContext('2d');
+let W = canvas.width = innerWidth, H = canvas.height = innerHeight;
+addEventListener('resize',()=>{W = canvas.width = innerWidth; H = canvas.height = innerHeight;});
+
+const $ = s => document.querySelector(s);
+const ui = {
+  score:$('#scoreText'), life:$('#lifeText'), healthBar:$('#healthBar'), healthBarBox:$('#healthBarBox'), bomb:$('#bombText'), pLv:$('#pLvText'),
+  exp:$('#expText'), expBar:$('#expBar'), stage:$('#stageText'),
+  weapon:$('#weaponText'), nextUnlock:$('#nextUnlockText'),
+  bossHud:$('#bossHud'), bossBar:$('#bossBar'), bossHp:$('#bossHpText'), bossName:$('#bossName span'),
+  msg:$('#centerMsg'), msgBig:$('#msgBig'), msgMid:$('#msgMid'),
+  cd1:$('#cd1'), cd2:$('#cd2'), cd3:$('#cd3'), cd4:$('#cd4'),
+  cd1t:$('#cd1t'), cd2t:$('#cd2t'), cd3t:$('#cd3t'), cd4t:$('#cd4t'),
+  skill2:$('#skill2'), skill3:$('#skill3'), skill4:$('#skill4'),
+  start:$('#startOverlay'), pause:$('#pauseOverlay'), end:$('#endOverlay'), stageOverlay:$('#stageOverlay'),
+  endTitle:$('#endTitle'), endDesc:$('#endDesc'), stageGrid:$('#stageGrid')
+};
+
+const GameState = {
+  MENU: 'menu',
+  PLAYING: 'playing',
+  PAUSED: 'paused',
+  ENDED: 'ended'
+};
+
+let state = GameState.MENU;
+let stageSelectOpen = false;
+let gameOver = false;
+let started = false;
+let pendingNextStageTimer = null;
+
+const keys = {};
+const stars = [], particles = [], bullets = [], enemyBullets = [], enemies = [], items = [];
+for(let i=0;i<160;i++) stars.push({x:Math.random()*W,y:Math.random()*H,r:Math.random()*2+.3,s:Math.random()*1.3+.3,a:Math.random()*.8+.2});
+const mouse = {x:W/2,y:H*.8,active:false};
+
+let gameTime = 0, spawnTimer = 0, bossItemTimer = 0, stage = 1, stageKills = 0, bossAppeared = false, stageCleared = false, bossChallenge = false;
+
+const bossList = [
+  {name:"青鸾机神", sub:"风羽离火", hp:700, color:"#71d8ff", kind:"bird", pattern:1},
+  {name:"穷奇歼星体", sub:"裂空噬光", hp:900, color:"#a36dff", kind:"tiger", pattern:2},
+  {name:"九尾电祟", sub:"幻雷灵尾", hp:1080, color:"#57ffbe", kind:"fox", pattern:3},
+  {name:"烛龙矩阵", sub:"昼夜切换", hp:1260, color:"#ffb15a", kind:"dragon", pattern:4},
+  {name:"应龙天驱", sub:"云暴流火", hp:1480, color:"#8ce3ff", kind:"wyvern", pattern:5},
+  {name:"饕餮熔核", sub:"吞噬反应", hp:1750, color:"#ff6c98", kind:"devour", pattern:6},
+  {name:"白泽智械", sub:"万象解析", hp:2050, color:"#c4d6ff", kind:"sage", pattern:7},
+  {name:"麒麟辉甲", sub:"圣域脉冲", hp:2360, color:"#ffd36b", kind:"qilin", pattern:8},
+  {name:"玄武重垒", sub:"深空壁垒", hp:2700, color:"#79ffc9", kind:"turtle", pattern:9},
+  {name:"鲲鹏星舰", sub:"天渊跃迁", hp:3200, color:"#9b7cff", kind:"roc", pattern:10},
+];
+
+const progress = {
+  cleared: Math.max(0, Math.min(10, Number(localStorage.getItem('galaxyDefenseClearedBosses')) || 0)),
+  level: Math.max(1, Number(localStorage.getItem('galaxyDefenseHighestLevel')) || 1)
+};
+
+function saveProgress(){
+  progress.level = Math.max(progress.level, player.level);
+  localStorage.setItem('galaxyDefenseClearedBosses', progress.cleared);
+  localStorage.setItem('galaxyDefenseHighestLevel', progress.level);
+  renderStageGrid();
+}
+function renderStageGrid(){
+  ui.stageGrid.innerHTML='';
+  const unlocked=Math.min(10,progress.cleared+1);
+  bossList.forEach((b,i)=>{
+    const stageNo=i+1,cleared=stageNo<=progress.cleared,locked=stageNo>unlocked;
+    const card=document.createElement('div');card.className=`stageCard${cleared?' cleared':''}${locked?' locked':''}`;
+    card.innerHTML=`<div class="stageNumber">STAGE ${String(stageNo).padStart(2,'0')}</div><div class="stageBoss">${b.name}</div><div class="stageSub">${b.sub}</div><div class="stageStatus">${locked?'🔒 未解锁':cleared?'✓ 已通关':'◆ 当前进度'}</div><div class="stageActions"></div>`;
+    const actions=card.querySelector('.stageActions');
+    if(!locked){
+      const enter=document.createElement('button');enter.textContent='进入关卡';enter.onclick=()=>startSelectedStage(stageNo);actions.appendChild(enter);
+      if(cleared){const direct=document.createElement('button');direct.className='bossDirect';direct.textContent='直战 Boss';direct.onclick=()=>startBossChallenge(stageNo);actions.appendChild(direct);}
+    }
+    ui.stageGrid.appendChild(card);
+  });
+}
+
+const player = {
+  x:W/2,y:H*.82,w:28,h:42,speed:5.6,life:8,maxLife:8,shootCd:0,
+  level:1,exp:0,nextExp:80,score:0,bomb:3,inv:0,shield:0,beam:0,overdrive:0,
+  trail:[], weaponName:"双翼灵击"
+};
+
+const skill = {burstCd:0, beamCd:0, shieldCd:0, overdriveCd:0};
+let boss = null;
+
+function rand(a,b){return Math.random()*(b-a)+a}
+function clamp(v,a,b){return Math.max(a,Math.min(b,v))}
+function dist(a,b){const dx=a.x-b.x, dy=a.y-b.y; return Math.hypot(dx,dy)}
+
+function setOverlay(overlay, visible){
+  overlay.classList.toggle('show', visible);
+  overlay.style.pointerEvents = visible ? 'auto' : 'none';
+}
+function syncOverlays(){
+  setOverlay(ui.start, state === GameState.MENU && !stageSelectOpen);
+  setOverlay(ui.stageOverlay, state === GameState.MENU && stageSelectOpen);
+  setOverlay(ui.pause, state === GameState.PAUSED);
+  setOverlay(ui.end, state === GameState.ENDED);
+}
+function clearPendingStageTimer(){
+  if(pendingNextStageTimer){
+    clearTimeout(pendingNextStageTimer);
+    pendingNextStageTimer = null;
+  }
+}
+
+function px(x,y,s,c){ ctx.fillStyle=c; ctx.fillRect(Math.round(x),Math.round(y),s,s); }
+function pixelSprite(cx,cy,size,map,palette){
+  const rows = map.length, cols = map[0].length;
+  const ox = Math.round(cx - cols*size/2), oy = Math.round(cy - rows*size/2);
+  for(let r=0;r<rows;r++){
+    for(let c=0;c<cols;c++){
+      const ch = map[r][c];
+      if(ch!=='.' && palette[ch]) px(ox+c*size, oy+r*size, size, palette[ch]);
+    }
+  }
+}
+function glowRect(x,y,w,h,color,blur=10){
+  ctx.save(); ctx.shadowBlur=blur; ctx.shadowColor=color; ctx.fillStyle=color; ctx.fillRect(x,y,w,h); ctx.restore();
+}
+function showMsg(big,mid,d=1800){
+  ui.msgBig.textContent = big;
+  ui.msgMid.textContent = mid;
+  ui.msg.classList.add('show');
+  clearTimeout(showMsg.t);
+  showMsg.t = setTimeout(()=>ui.msg.classList.remove('show'), d);
+}
+function weaponInfo(lv){
+  if(lv>=9) return {name:"天穹七曜阵", next:"已臻极限", count:9};
+  if(lv>=7) return {name:"神乐极星阵", next:"天穹七曜阵", count:7};
+  if(lv>=5) return {name:"幻月蝶翼阵", next:"神乐极星阵", count:5};
+  if(lv>=3) return {name:"三向灵羽", next:"幻月蝶翼阵", count:3};
+  return {name:"双翼灵击", next:"三向灵羽", count:2};
+}
+function setCd(mask,txt,v){ if(v>0){mask.classList.add('active');txt.textContent=Math.ceil(v/60)} else mask.classList.remove('active') }
+
+function updateUI(){
+  ui.score.textContent = player.score;
+  const healthPercent = Math.max(0, Math.min(100, player.life / player.maxLife * 100));
+  ui.life.textContent = `${Math.max(0, player.life)} / ${player.maxLife}`;
+  ui.healthBar.style.width = `${healthPercent}%`;
+  ui.healthBar.classList.toggle('warning', healthPercent <= 30);
+  ui.healthBarBox.setAttribute('aria-valuemax', player.maxLife);
+  ui.healthBarBox.setAttribute('aria-valuenow', Math.max(0, player.life));
+  ui.bomb.textContent = player.bomb;
+  ui.pLv.textContent = player.level;
+  ui.exp.textContent = `${Math.floor(player.exp)} / ${player.nextExp}`;
+  ui.expBar.style.width = `${player.exp/player.nextExp*100}%`;
+  ui.stage.textContent = `第 ${stage} 关`;
+  ui.weapon.textContent = player.weaponName;
+  ui.nextUnlock.textContent = weaponInfo(player.level).next;
+
+  if(boss){
+    ui.bossHud.classList.add('active');
+    const p = clamp(boss.hp / boss.maxHp, 0, 1);
+    ui.bossBar.style.width = `${p * 100}%`;
+    ui.bossHp.textContent = `${Math.round(p * 100)}%`;
+    ui.bossName.textContent = `Boss：虚渊·${boss.name}「${boss.sub}」`;
+  }else{
+    ui.bossHud.classList.remove('active');
+  }
+
+  ui.skill2.classList.toggle('locked', player.level < 3);
+  ui.skill3.classList.toggle('locked', player.level < 5);
+  ui.skill4.classList.toggle('locked', player.level < 7);
+
+  setCd(ui.cd1,ui.cd1t,skill.burstCd);
+  setCd(ui.cd2,ui.cd2t,skill.beamCd);
+  setCd(ui.cd3,ui.cd3t,skill.shieldCd);
+  setCd(ui.cd4,ui.cd4t,skill.overdriveCd);
+
+  syncOverlays();
+}
+
+function burst(x,y,color,count=18){
+  for(let i=0;i<count;i++){
+    const a = Math.PI*2*i/count;
+    particles.push({
+      x,y,
+      vx:Math.cos(a)*rand(1,4.8),
+      vy:Math.sin(a)*rand(1,4.8),
+      life:rand(18,42),
+      maxLife:42,
+      size:rand(2,5),
+      color
+    });
+  }
+}
+function particle(x,y,color){
+  particles.push({
+    x,y,
+    vx:rand(-1.4,1.4),
+    vy:rand(-1.4,1.4),
+    life:rand(14,28),
+    maxLife:28,
+    size:rand(1.2,3.8),
+    color
+  });
+}
+function gainExp(v){
+  player.exp += v;
+  while(player.exp >= player.nextExp){
+    player.exp -= player.nextExp;
+    player.level++;
+
+    // 升级增加生存能力：生命上限+1，并直接回满血
+    player.maxLife += 1;
+    player.life = player.maxLife;
+
+    player.nextExp = Math.floor(player.nextExp * 1.22);
+    player.weaponName = weaponInfo(player.level).name;
+    burst(player.x,player.y,"#d7f8ff",28);
+
+    let t="火力升级，生命回满";
+    if(player.level===3) t="解锁：紫电贯星（X），生命回满";
+    if(player.level===5) t="解锁：苍穹结界（C），生命回满";
+    if(player.level===7) t="解锁：神乐超载（V），生命回满";
+    if(player.level===9) t="终阶弹幕：天穹七曜阵，生命回满";
+
+    showMsg(`LEVEL UP ${player.level}`, t, 2200);
+  }
+}
+function pBullet(x,y,vx,vy,pow=1,size=4.5,type="normal"){
+  const colors=["#71d8ff","#57ffbe","#a36dff"];
+  bullets.push({x,y,vx,vy,power:pow,r:size,color:colors[(Math.random()*3)|0],type});
+}
+function shootPlayer(){
+  const info = weaponInfo(player.level);
+  const c = info.count;
+  const base = player.overdrive>0 ? -10 : -9;
+  const sp = player.overdrive>0 ? .1 : .18;
+
+  if(c===2){
+    pBullet(player.x-8,player.y-18,-.12,base,1);
+    pBullet(player.x+8,player.y-18,.12,base,1);
+  }else if(c===3){
+    pBullet(player.x,player.y-22,0,base-.5,1.2);
+    pBullet(player.x-10,player.y-18,-sp,base,1);
+    pBullet(player.x+10,player.y-18,sp,base,1);
+  }else if(c===5){
+    [-2,-1,0,1,2].forEach(n=>pBullet(player.x+n*8,player.y-20,n*sp*.85,base-Math.abs(n)*.15,1.1));
+  }else if(c===7){
+    [-3,-2,-1,0,1,2,3].forEach(n=>pBullet(player.x+n*7,player.y-18,n*sp*.72,base-Math.abs(n)*.08,1.05));
+  }else{
+    [-4,-3,-2,-1,0,1,2,3,4].forEach(n=>pBullet(player.x+n*6.5,player.y-18,n*.09,base-Math.abs(n)*.06,1.15));
+  }
+
+  if(player.overdrive>0){
+    pBullet(player.x-18,player.y-12,-.25,-8.6,.9);
+    pBullet(player.x+18,player.y-12,.25,-8.6,.9);
+    pBullet(player.x,player.y-26,0,-11,1.25,5);
+  }
+}
+function enemy(stageLv){
+  const r=Math.random();
+  let type="small";
+  if(r>.75) type="medium";
+  if(r>.93) type="swift";
+
+  let e={
+    x:rand(40,W-40),
+    y:-40,
+    w:24,h:28,
+    speed:rand(1.3,2.5)+stageLv*.12,
+    hp:2+stageLv*.8,
+    maxHp:2+stageLv*.8,
+    shootCd:rand(40,100),
+    type,
+    score:10+stageLv*4
+  };
+
+  if(type==="medium"){e.w=34;e.h=38;e.speed*=.8;e.hp*=2.2;e.score*=2}
+  if(type==="swift"){e.w=20;e.h=24;e.speed*=1.6;e.hp*=.95;e.score*=1.4}
+  enemies.push(e);
+}
+function enemyShoot(e){
+  const ang = Math.atan2(player.y-e.y, player.x-e.x);
+  const sp = e.type==="swift" ? 3.8 : 2.9;
+  if(e.type==="medium"){
+    for(let i=-1;i<=1;i++){
+      enemyBullets.push({
+        x:e.x,y:e.y+10,
+        vx:Math.cos(ang+i*.18)*sp,
+        vy:Math.sin(ang+i*.18)*sp,
+        r:4.6,color:"#ff7b9a"
+      });
+    }
+  }else{
+    enemyBullets.push({
+      x:e.x,y:e.y+10,
+      vx:Math.cos(ang)*sp,
+      vy:Math.sin(ang)*sp,
+      r:4,color:"#ff87b1"
+    });
+  }
+}
+function dropItem(x,y){
+  const r=Math.random();
+  let type="exp";
+
+  // 提高回血和生存道具掉率
+  if(r > 0.78) type="life";
+  else if(r > 0.62) type="bomb";
+
+  items.push({x,y,vx:rand(-.5,.5),vy:rand(1,1.8),r:12,type});
+}
+function spawnBossSupply(){
+  const activeBossItems=items.filter(it=>it.bossSupply).length;
+  if(!boss || activeBossItems>=5 || Math.random()>.9) return;
+  const roll=Math.random();
+  const type=roll<.4?'bossLife':roll<.72?'bossShield':'bossRefresh';
+  items.push({
+    x:rand(48,W-48),y:rand(125,Math.max(150,H*.38)),
+    vx:rand(-.16,.16),vy:rand(.12,.28),r:18,type,bossSupply:true,
+    phase:rand(0,Math.PI*2)
+  });
+}
+function damagePlayer(n=1){
+  if(state !== GameState.PLAYING) return;
+  if(player.inv>0) return;
+
+  if(player.shield>0){
+    player.shield=Math.max(0,player.shield-40);
+    burst(player.x,player.y,"#72ffd4",12);
+    return;
+  }
+
+  player.life -= n;
+  player.inv = 72;
+  burst(player.x,player.y,"#ff9bb6",16);
+
+  if(player.life<=0){
+    endGame(false,"战机坠毁","星海战线失守，但你的传说仍会被记住。");
+  }
+}
+function endGame(win,title,desc){
+  clearPendingStageTimer();
+  gameOver = true;
+  state = GameState.ENDED;
+  ui.endTitle.textContent = title;
+  ui.endDesc.textContent = desc;
+  updateUI();
+}
+function spawnBoss(){
+  const d = bossList[Math.min(stage-1, bossList.length-1)];
+  boss = {
+    x:W/2,y:120,w:140,h:110,
+    hp:d.hp,maxHp:d.hp,
+    name:d.name,sub:d.sub,color:d.color,kind:d.kind,pattern:d.pattern,
+    t:0,shootCd:0
+  };
+  bossAppeared = true;
+  bossItemTimer = 40;
+  showMsg(`第 ${stage} 关 Boss`, `${d.name}·${d.sub}`, 2600);
+}
+function nextStage(){
+  if(state !== GameState.PLAYING) return;
+  stage++;
+  if(stage>10){
+    endGame(true,"通关完成","你已击破十大神话赛博异兽，成为星海灵装传说。");
+    return;
+  }
+  boss=null;
+  stageKills=0;
+  bossAppeared=false;
+  stageCleared=false;
+
+  // 过关恢复更多生命
+  player.life=Math.min(player.maxLife, player.life+3);
+  player.bomb=Math.min(5, player.bomb+1);
+
+  showMsg(`第 ${stage} 关`, `新的异兽信号已出现`, 2200);
+}
+function useBurst(){
+  if(state !== GameState.PLAYING) return;
+  if(skill.burstCd>0) return;
+  skill.burstCd = 600;
+  burst(player.x,player.y,"#d8fbff",42);
+  for(let i=enemyBullets.length-1;i>=0;i--){
+    if(dist(enemyBullets[i],player)<240){
+      particle(enemyBullets[i].x,enemyBullets[i].y,"#a3f5ff");
+      enemyBullets.splice(i,1);
+      player.score+=2;
+    }
+  }
+  enemies.forEach(e=>e.hp-=11);
+  if(boss) boss.hp -= 34;
+}
+function useBeam(){
+  if(state !== GameState.PLAYING) return;
+  if(player.level<3 || skill.beamCd>0) return;
+  skill.beamCd=720;
+  player.beam=180;
+  showMsg("技能发动","紫电贯星",1000);
+}
+function useShield(){
+  if(state !== GameState.PLAYING) return;
+  if(player.level<5 || skill.shieldCd>0) return;
+  skill.shieldCd=840;
+  player.shield=210;
+  showMsg("技能发动","苍穹结界",1000);
+}
+function useOverdrive(){
+  if(state !== GameState.PLAYING) return;
+  if(player.level<7 || skill.overdriveCd>0) return;
+  skill.overdriveCd=1080;
+  player.overdrive=300;
+  showMsg("技能发动","神乐超载",1200);
+}
+
+function bossShoot(){
+  if(!boss) return;
+  const p=boss.pattern,t=boss.t;
+  if(p===1){ for(let i=0;i<18;i++){ const a=Math.PI*2*i/18+t*.035; enemyBullets.push({x:boss.x,y:boss.y+8,vx:Math.cos(a)*2.4,vy:Math.sin(a)*2.4+.4,r:5,color:"#8fe8ff"}); } }
+  else if(p===2){ for(let i=-5;i<=5;i++){ const a=Math.atan2(player.y-boss.y,player.x-boss.x)+i*.07; enemyBullets.push({x:boss.x+i*7,y:boss.y+16,vx:Math.cos(a)*3.1,vy:Math.sin(a)*3.1,r:5,color:"#b38cff"}); } }
+  else if(p===3){ for(let tail=0;tail<5;tail++){ const cx=boss.x+(tail-2)*18; for(let i=0;i<7;i++){ const a=-Math.PI/2 + (i-3)*.18 + Math.sin(t*.05+tail)*.2; enemyBullets.push({x:cx,y:boss.y+22,vx:Math.cos(a)*2.1,vy:Math.sin(a)*2.1+2.2,r:4.6,color:"#57ffbe"}); } } }
+  else if(p===4){ for(let i=0;i<24;i++){ const a=Math.PI*2*i/24+t*.025; enemyBullets.push({x:boss.x+Math.cos(a*2)*12,y:boss.y+Math.sin(a*2)*6,vx:Math.cos(a)*2.8,vy:Math.sin(a)*2.8,r:5,color:i%2?"#ffb36c":"#71d8ff"}); } }
+  else if(p===5){ for(let side=-1;side<=1;side+=2){ for(let i=0;i<8;i++){ const a=.7*side + i*.06*side; enemyBullets.push({x:boss.x+side*56,y:boss.y,vx:Math.cos(a)*2.7,vy:2.1+Math.sin(a)*.7,r:4.8,color:"#8ce3ff"}); } } }
+  else if(p===6){ for(let i=0;i<20;i++){ const a=Math.PI*2*i/20+t*.04; const sp= i%2 ? 1.8 : 3.1; enemyBullets.push({x:boss.x,y:boss.y+14,vx:Math.cos(a)*sp,vy:Math.sin(a)*sp+.4,r:5.4,color:"#ff6c98"}); } }
+  else if(p===7){ for(let i=-4;i<=4;i++){ const a=Math.atan2(player.y-boss.y,player.x-boss.x)+i*.11; enemyBullets.push({x:boss.x,y:boss.y+18,vx:Math.cos(a)*(2.5+Math.abs(i)*.15),vy:Math.sin(a)*(2.5+Math.abs(i)*.15),r:4.7,color:"#d6e6ff"}); } for(let i=0;i<8;i++) enemyBullets.push({x:boss.x+Math.cos(t*.05+i)*40,y:boss.y+10,vx:Math.sin(t*.04+i)*1.2,vy:2.9,r:4.2,color:"#a36dff"}); }
+  else if(p===8){ for(let i=0;i<6;i++){ const x=boss.x+(i-2.5)*24; for(let j=0;j<5;j++){ enemyBullets.push({x,y:boss.y+24,vx:(j-2)*.45,vy:2.4+i*.03,r:5,color:"#ffd36b"}); } } }
+  else if(p===9){ for(let ring=0;ring<2;ring++) for(let i=0;i<18;i++){ const a=Math.PI*2*i/18+t*.02+ring*.15; enemyBullets.push({x:boss.x,y:boss.y+10,vx:Math.cos(a)*(2+ring*.9),vy:Math.sin(a)*(2+ring*.9)+.3,r:5,color:ring?"#79ffc9":"#71d8ff"}); } }
+  else if(p===10){ for(let wave=0;wave<3;wave++) for(let i=-6;i<=6;i++){ const a=Math.atan2(player.y-boss.y,player.x-boss.x)+i*.09+wave*.04; enemyBullets.push({x:boss.x,y:boss.y+18+wave*8,vx:Math.cos(a)*(2.8+wave*.35),vy:Math.sin(a)*(2.8+wave*.35),r:5.3,color:wave===0?"#9b7cff":wave===1?"#71d8ff":"#57ffbe"}); } }
+}
+
+function update(){
+  if(state !== GameState.PLAYING) return;
+
+  gameTime++;
+  ['burstCd','beamCd','shieldCd','overdriveCd'].forEach(k=>skill[k]>0&&skill[k]--);
+  ['inv','shield','beam','overdrive'].forEach(k=>player[k]>0&&player[k]--);
+
+  stars.forEach(s=>{s.y+=s.s;if(s.y>H+3){s.y=-3;s.x=Math.random()*W}});
+
+  if(mouse.active){
+    player.x += (mouse.x-player.x)*.18;
+    player.y += (mouse.y-player.y)*.18;
+  }else{
+    if(keys.ArrowLeft||keys.a||keys.A) player.x -= player.speed;
+    if(keys.ArrowRight||keys.d||keys.D) player.x += player.speed;
+    if(keys.ArrowUp||keys.w||keys.W) player.y -= player.speed;
+    if(keys.ArrowDown||keys.s||keys.S) player.y += player.speed;
+  }
+
+  player.x = clamp(player.x,24,W-24);
+  player.y = clamp(player.y,40,H-30);
+  player.trail.push({x:player.x,y:player.y+16,life:18});
+  if(player.trail.length>18) player.trail.shift();
+
+  if(player.shootCd>0) player.shootCd--;
+  else{
+    shootPlayer();
+    player.shootCd = player.overdrive>0 ? 4 : 8;
+  }
+
+  if(!bossAppeared){
+    spawnTimer++;
+    if(spawnTimer > Math.max(20, 78 - stage * 2)){
+      spawnTimer = 0;
+      enemy(stage);
+    }
+
+    // 更快进入Boss战：少量分数或较少击杀数即可触发
+    const bossScoreThreshold = 120 + (stage - 1) * 80;
+    const bossKillThreshold = 4 + stage;
+
+    if((player.score >= bossScoreThreshold || stageKills >= bossKillThreshold) && !boss){
+      spawnBoss();
+    }
+  }
+
+  enemies.forEach((e,idx)=>{
+    e.y += e.speed;
+    e.x += Math.sin((gameTime+idx*21)*.03) * (e.type==="swift"?2:.8);
+    e.shootCd--;
+    if(e.shootCd<=0){
+      enemyShoot(e);
+      e.shootCd = e.type==="swift"?80:(e.type==="medium"?90:110);
+    }
+    if(e.y>H+60) enemies.splice(idx,1);
+    if(dist(e,player) < e.w+14){
+      e.hp=0;
+      damagePlayer(1);
+    }
+  });
+
+  if(boss){
+    boss.t++;
+    boss.x += Math.sin(boss.t*.02)*(boss.pattern>=6?2.4:1.8);
+    boss.x = clamp(boss.x,90,W-90);
+    boss.shootCd--;
+    if(boss.shootCd<=0){
+      bossShoot();
+      boss.shootCd = Math.max(14,42-boss.pattern*2);
+    }
+    if(dist(boss,player)<76) damagePlayer(1);
+    bossItemTimer--;
+    if(bossItemTimer<=0){
+      spawnBossSupply();
+      bossItemTimer=150;
+    }
+  }
+
+  bullets.forEach((b,bi)=>{
+    b.x+=b.vx; b.y+=b.vy; particle(b.x,b.y,b.color);
+    if(b.y<-50||b.x<-50||b.x>W+50){ bullets.splice(bi,1); return; }
+
+    for(let i=enemies.length-1;i>=0;i--){
+      const e=enemies[i];
+      if(Math.abs(b.x-e.x)<e.w*.5 && Math.abs(b.y-e.y)<e.h*.5){
+        e.hp -= b.power * (player.overdrive>0?1.5:1);
+        bullets.splice(bi,1);
+        particle(b.x,b.y,"#d8f5ff");
+        if(e.hp<=0){
+          player.score += Math.floor(e.score);
+          gainExp(18+stage*3);
+          burst(e.x,e.y,e.type==="medium"?"#9b7cff":"#71d8ff",14);
+          dropItem(e.x,e.y);
+          enemies.splice(i,1);
+          stageKills++;
+        }
+        break;
+      }
+    }
+
+    if(boss && Math.abs(b.x-boss.x)<boss.w*.48 && Math.abs(b.y-boss.y)<boss.h*.48){
+      boss.hp -= b.power * (player.overdrive>0?1.5:1);
+      bullets.splice(bi,1);
+      particle(b.x,b.y,"#ffd2dd");
+      if(boss.hp<=0){
+        player.score += 1200 + stage*360;
+        gainExp(140 + stage*24);
+        burst(boss.x,boss.y,boss.color,56);
+        progress.cleared=Math.max(progress.cleared,stage);
+        saveProgress();
+        boss = null;
+        stageCleared = true;
+        showMsg(`第 ${stage} 关完成`,bossChallenge?`Boss 挑战成功 · 等级 ${player.level} 已保留`:`跃迁至下一星域`,2200);
+        if(bossChallenge){
+          clearPendingStageTimer();
+          pendingNextStageTimer=setTimeout(()=>{
+            pendingNextStageTimer=null;
+            endGame(true,'Boss 挑战完成',`${bossList[stage-1].name} 已再次被击破，战机等级已保存。`);
+          },1700);
+          return;
+        }
+        clearPendingStageTimer();
+        pendingNextStageTimer = setTimeout(() => {
+          pendingNextStageTimer = null;
+          nextStage();
+        }, 1700);
+      }
+    }
+  });
+
+  if(player.beam>0){
+    for(let i=enemies.length-1;i>=0;i--){
+      const e=enemies[i];
+      if(Math.abs(e.x-player.x)<58 && e.y<player.y){
+        e.hp -= .7;
+        if(e.hp<=0){
+          player.score += Math.floor(e.score);
+          gainExp(18+stage*3);
+          burst(e.x,e.y,"#a2d7ff",16);
+          dropItem(e.x,e.y);
+          enemies.splice(i,1);
+          stageKills++;
+        }
+      }
+    }
+    if(boss && Math.abs(boss.x-player.x)<78 && boss.y<player.y) boss.hp -= 1.0;
+  }
+
+  enemyBullets.forEach((b,i)=>{
+    b.x+=b.vx; b.y+=b.vy;
+    if(player.shield>0 && dist(b,player)<42){
+      particle(b.x,b.y,"#72ffd4");
+      enemyBullets.splice(i,1);
+      return;
+    }
+    if(dist(b,player)<b.r+14){
+      enemyBullets.splice(i,1);
+      damagePlayer(1);
+      return;
+    }
+    if(b.x<-60||b.x>W+60||b.y<-60||b.y>H+60) enemyBullets.splice(i,1);
+  });
+
+  items.forEach((it,i)=>{
+    it.phase=(it.phase||0)+.025;
+    it.x+=it.vx+Math.sin(it.phase)*.08; it.y+=it.vy;
+    if(dist(it,player)<(it.bossSupply?34:24)){
+      if(it.type==="exp") gainExp(30);
+      if(it.type==="life") player.life = Math.min(player.maxLife, player.life+2);
+      if(it.type==="bomb") player.bomb = Math.min(5, player.bomb+1);
+      if(it.type==="bossLife") player.life=Math.min(player.maxLife,player.life+Math.max(3,Math.ceil(player.maxLife*.4)));
+      if(it.type==="bossShield") player.shield=Math.max(player.shield,360);
+      if(it.type==="bossRefresh") Object.assign(skill,{burstCd:0,beamCd:0,shieldCd:0,overdriveCd:0});
+      const itemColor=it.type==="bossLife"?"#57ff9a":it.type==="bossShield"?"#55bfff":it.type==="bossRefresh"?"#b77aff":it.type==="life"?"#ff6fa8":it.type==="bomb"?"#ffe07c":"#8fe8ff";
+      burst(it.x,it.y,itemColor,16);
+      items.splice(i,1);
+      return;
+    }
+    if(it.y>H+50||it.x<-50||it.x>W+50) items.splice(i,1);
+  });
+
+  particles.forEach((p,i)=>{
+    p.x+=p.vx; p.y+=p.vy; p.life--;
+    if(p.life<=0) particles.splice(i,1);
+  });
+
+  updateUI();
+}
+
+function bg(){
+  ctx.clearRect(0,0,W,H);
+  const g=ctx.createLinearGradient(0,0,0,H);
+  g.addColorStop(0,"rgba(8,14,40,.18)");
+  g.addColorStop(.5,"rgba(10,8,28,.06)");
+  g.addColorStop(1,"rgba(0,0,0,.18)");
+  ctx.fillStyle=g;
+  ctx.fillRect(0,0,W,H);
+
+  stars.forEach(s=>{
+    ctx.save();
+    ctx.globalAlpha=s.a;
+    ctx.fillStyle="#d6e4ff";
+    ctx.fillRect(s.x,s.y,s.r,s.r);
+    ctx.restore();
+  });
+
+  for(let i=0;i<6;i++){
+    const y=(gameTime*(.15+i*.03))%H;
+    ctx.strokeStyle=`rgba(${80+i*20},${120+i*12},255,.035)`;
+    ctx.beginPath();
+    ctx.moveTo(0,y);
+    ctx.lineTo(W,y-60);
+    ctx.stroke();
+  }
+}
+
+function drawPlayer(){
+  player.trail.forEach((t,i)=>{
+    const a=i/player.trail.length;
+    ctx.save();
+    ctx.globalAlpha=a*.35;
+    glowRect(t.x-2,t.y-2,4,4,"#71d8ff",8);
+    ctx.restore();
+  });
+
+  if(player.inv>0 && ((player.inv/4)|0)%2===0) ctx.globalAlpha=.45;
+
+  const map = [
+    ".....2.....",
+    "....121....",
+    "....121....",
+    "...11211...",
+    "..1112111..",
+    ".113333311.",
+    "11132223111",
+    "..1322231..",
+    "...32223...",
+    "..3..2..3..",
+    ".3...2...3."
+  ];
+  const palette = {1:"#5c8dff",2:"#e9f5ff",3:"#8d5cff"};
+  ctx.save();
+  ctx.shadowBlur=16;ctx.shadowColor="#746dff";
+  pixelSprite(player.x,player.y,4,map,palette);
+  ctx.restore();
+
+  if(player.shield>0){
+    ctx.save();
+    ctx.strokeStyle="rgba(112,255,210,.9)";
+    ctx.lineWidth=3;
+    ctx.beginPath();
+    ctx.arc(player.x,player.y,28+Math.sin(gameTime*.16)*2,0,Math.PI*2);
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  ctx.globalAlpha=1;
+}
+function drawEnemy(e){
+  let map,pal;
+  if(e.type==="small"){
+    map=["2.....2",".1...1.",".11311.","1113111","..111..","..2.2.."];
+    pal={1:"#ff657f",2:"#ffb05f",3:"#fff0dd"};
+  }else if(e.type==="medium"){
+    map=["2.......2",".11...11.","111232111",".1123211.","..11111..","..2...2.."];
+    pal={1:"#ff486f",2:"#ffa45e",3:"#fff3df"};
+  }else{
+    map=["2.....2","11...11",".11311.","..111..",".1...1.","2.....2"];
+    pal={1:"#d84dff",2:"#ff6f91",3:"#fff0ff"};
+  }
+  ctx.save();ctx.shadowBlur=10;ctx.shadowColor=pal[1];pixelSprite(e.x,e.y,5,map,pal);ctx.restore();
+}
+function bossSprite(kind,color){
+  const c1=color, c2="#10183f", c3="#ffffff", c4="#ff9fd3";
+  const base = {
+    bird:["...111...","..11211..",".11.3.11.","11.222.11",".1122211.","..1.4.1..",".1.....1.","1.......1"],
+    tiger:["..11111..",".1122211.","11.222.11","1..333..1","11.444.11",".1.....1.","1.1...1.1","..1...1.."],
+    fox:["...111...","..12221..",".12.3.21.","112222211","..1.4.1..",".1.1.1.1.","1..1.1..1","..1...1.."],
+    dragon:["..1111...",".1122211.","11.222211",".1222211.","..111.11.",".1..4..1.","1..1.1..1","...1.1..."],
+    wyvern:["..11111..",".11.3.11.","1.12221.1","111222111",".1.444.1.","1..1.1..1","..1...1..",".1.....1."],
+    devour:["...111...","..12221..",".1222221.","112333211",".1222221.","..1.4.1..",".1.....1.","..1...1.."],
+    sage:["..1...1..",".1.111.1.","1.12221.1",".1123211.","1.12221.1",".1.444.1.","..1...1..",".1.1.1.1."],
+    qilin:["..1.1.1..",".1122211.","11.222.11","112333211",".1122211.","..1.4.1..",".1.1.1.1.","1.......1"],
+    turtle:["...111...",".1122211.","112222211","12.333.21","112444211",".1.1.1.1.","1.......1","..1...1.."],
+    roc:[".11...11.","1111.1111",".1222221.","112333211",".1222221.","..1.4.1..",".1.1.1.1.","1.......1"]
+  };
+  return {map:base[kind], palette:{1:c1,2:c2,3:c3,4:c4}};
+}
+function drawBoss(){
+  if(!boss) return;
+  const spr = bossSprite(boss.kind,boss.color);
+  ctx.save();
+  ctx.shadowBlur=20;
+  ctx.shadowColor=boss.color;
+  pixelSprite(boss.x,boss.y,8,spr.map,spr.palette);
+  ctx.restore();
+}
+function drawBullets(){
+  bullets.forEach(b=> glowRect(b.x-b.r/2,b.y-b.r/2,b.r,b.r,b.color,10));
+  enemyBullets.forEach(b=> glowRect(b.x-b.r/2,b.y-b.r/2,b.r,b.r,b.color,8));
+
+  if(player.beam>0){
+    ctx.save();
+    const g=ctx.createLinearGradient(player.x,player.y,player.x,0);
+    g.addColorStop(0,"rgba(163,109,255,0)");
+    g.addColorStop(.15,"rgba(163,109,255,.55)");
+    g.addColorStop(.5,"rgba(113,216,255,.95)");
+    g.addColorStop(1,"rgba(230,248,255,.85)");
+    ctx.strokeStyle=g;
+    ctx.lineWidth=14;
+    ctx.beginPath();
+    ctx.moveTo(player.x,player.y-18);
+    ctx.lineTo(player.x,0);
+    ctx.stroke();
+    ctx.restore();
+  }
+}
+function drawItems(){
+  items.forEach(it=>{
+    if(it.bossSupply){
+      const color=it.type==="bossLife"?"#57ff91":it.type==="bossShield"?"#55bfff":"#b46dff";
+      const radius=18+Math.sin(gameTime*.08+it.phase)*1.2;
+      ctx.save();
+      ctx.shadowBlur=18;ctx.shadowColor=color;
+      const orb=ctx.createRadialGradient(it.x-5,it.y-6,3,it.x,it.y,radius);
+      orb.addColorStop(0,"rgba(255,255,255,.95)");orb.addColorStop(.25,color);orb.addColorStop(1,"rgba(10,18,50,.25)");
+      ctx.fillStyle=orb;ctx.beginPath();ctx.arc(it.x,it.y,radius,0,Math.PI*2);ctx.fill();
+      ctx.strokeStyle="rgba(255,255,255,.65)";ctx.lineWidth=2;ctx.stroke();
+      ctx.strokeStyle="#f3fbff";ctx.fillStyle="#f3fbff";ctx.lineWidth=4;ctx.lineCap="round";ctx.lineJoin="round";
+      if(it.type==="bossLife"){
+        ctx.beginPath();ctx.moveTo(it.x-8,it.y);ctx.lineTo(it.x+8,it.y);ctx.moveTo(it.x,it.y-8);ctx.lineTo(it.x,it.y+8);ctx.stroke();
+      }else if(it.type==="bossShield"){
+        ctx.beginPath();ctx.moveTo(it.x,it.y-9);ctx.lineTo(it.x+8,it.y-5);ctx.lineTo(it.x+6,it.y+5);ctx.lineTo(it.x,it.y+10);ctx.lineTo(it.x-6,it.y+5);ctx.lineTo(it.x-8,it.y-5);ctx.closePath();ctx.stroke();
+      }else{
+        ctx.beginPath();ctx.moveTo(it.x-8,it.y+5);ctx.lineTo(it.x,it.y-7);ctx.lineTo(it.x+8,it.y+5);ctx.moveTo(it.x,it.y-6);ctx.lineTo(it.x,it.y+9);ctx.stroke();
+      }
+      ctx.restore();
+      return;
+    }
+    let c="#8ce6ff";
+    if(it.type==="life") c="#ff6fa8";
+    if(it.type==="bomb") c="#ffd36b";
+    glowRect(it.x-6,it.y-6,12,12,c,12);
+  });
+}
+function drawParticles(){
+  particles.forEach(p=>{
+    ctx.save();
+    ctx.globalAlpha=p.life/p.maxLife;
+    glowRect(p.x-p.size/2,p.y-p.size/2,p.size,p.size,p.color,8);
+    ctx.restore();
+  });
+}
+function drawHint(){
+  if(!boss && !stageCleared && state === GameState.PLAYING){
+    const bossScoreThreshold = 120 + (stage - 1) * 80;
+    const bossKillThreshold = 4 + stage;
+    ctx.save();
+    ctx.fillStyle="rgba(220,235,255,.76)";
+    ctx.font="14px Microsoft YaHei";
+    ctx.fillText(`达到 ${bossScoreThreshold} 分或击破 ${bossKillThreshold} 架敌机，即可进入Boss战`,20,H-86);
+    ctx.restore();
+  }
+}
+function draw(){
+  bg();
+  drawParticles();
+  enemies.forEach(drawEnemy);
+  drawBoss();
+  drawItems();
+  drawBullets();
+  drawPlayer();
+  drawHint();
+}
+function loop(){
+  update();
+  draw();
+  requestAnimationFrame(loop);
+}
+
+function clearAllEntities(){
+  bullets.length=0;
+  enemyBullets.length=0;
+  enemies.length=0;
+  items.length=0;
+  particles.length=0;
+}
+function resetGame(){
+  clearPendingStageTimer();
+  clearAllEntities();
+
+  boss=null;
+  gameTime=0;
+  spawnTimer=0;
+  bossItemTimer=0;
+  stage=1;
+  stageKills=0;
+  bossAppeared=false;
+  stageCleared=false;
+  bossChallenge=false;
+  gameOver=false;
+
+  Object.assign(player,{
+    x:W/2,y:H*.82,life:8,maxLife:8,shootCd:0,
+    level:1,exp:0,nextExp:80,score:0,bomb:3,inv:0,shield:0,beam:0,overdrive:0,
+    trail:[],weaponName:"双翼灵击"
+  });
+  Object.assign(skill,{burstCd:0,beamCd:0,shieldCd:0,overdriveCd:0});
+
+  updateUI();
+}
+function applySavedLevel(){
+  player.level=progress.level;
+  player.maxLife=8+Math.max(0,player.level-1);
+  player.life=player.maxLife;
+  player.nextExp=Math.floor(80*Math.pow(1.22,Math.max(0,player.level-1)));
+  player.exp=0;
+  player.weaponName=weaponInfo(player.level).name;
+}
+function startGame(){
+  started = true;
+  resetGame();
+  state = GameState.PLAYING;
+  showMsg("第 1 关","星海启程",1800);
+  updateUI();
+}
+function startBossChallenge(targetStage){
+  if(targetStage<1||targetStage>progress.cleared) return;
+  started=true;
+  resetGame();
+  bossChallenge=true;
+  stage=targetStage;
+  applySavedLevel();
+  state=GameState.PLAYING;
+  syncOverlays();
+  spawnBoss();
+  updateUI();
+}
+function startSelectedStage(targetStage){
+  if(targetStage<1||targetStage>progress.cleared+1) return;
+  started=true;
+  resetGame();
+  stage=targetStage;
+  applySavedLevel();
+  state=GameState.PLAYING;
+  stageSelectOpen=false;
+  syncOverlays();
+  showMsg(`第 ${stage} 关`,stage===1?'星海启程':'继续深入星域',1800);
+  updateUI();
+}
+function pauseGame(){
+  if(state !== GameState.PLAYING) return;
+  state = GameState.PAUSED;
+  updateUI();
+}
+function resumeGame(){
+  if(state !== GameState.PAUSED) return;
+  state = GameState.PLAYING;
+  updateUI();
+}
+
+addEventListener('keydown',e=>{
+  keys[e.key]=true;
+
+  if(e.key===' ' || e.key==='p' || e.key==='P'){
+    if(state === GameState.PLAYING) pauseGame();
+    else if(state === GameState.PAUSED) resumeGame();
+    return;
+  }
+
+  if(e.key==='r' || e.key==='R'){
+    if(started){
+      startGame();
+    }
+    return;
+  }
+
+  if(state !== GameState.PLAYING) return;
+
+  if(e.key==='z'||e.key==='Z') useBurst();
+  if(e.key==='x'||e.key==='X') useBeam();
+  if(e.key==='c'||e.key==='C') useShield();
+  if(e.key==='v'||e.key==='V') useOverdrive();
+});
+addEventListener('keyup',e=>keys[e.key]=false);
+
+canvas.addEventListener('mousemove',e=>{
+  const r=canvas.getBoundingClientRect();
+  mouse.x=e.clientX-r.left;
+  mouse.y=e.clientY-r.top;
+  mouse.active=true;
+});
+canvas.addEventListener('mouseleave',()=>mouse.active=false);
+
+$('#startBtn').onclick = () => { startGame(); };
+$('#stageSelectBtn').onclick = () => { stageSelectOpen=true; renderStageGrid(); syncOverlays(); };
+$('#closeStageBtn').onclick = () => { stageSelectOpen=false; syncOverlays(); };
+$('#helpBtn').onclick = () => {
+  alert("操作：鼠标/WASD/方向键移动，Z/X/C/V使用技能，P或空格暂停，R重开。通关后的 Boss 可在开始界面直接挑战并保留最高战机等级；Boss 战中会出现回血、护盾和技能刷新补给。");
+};
+$('#resumeBtn').onclick = () => { resumeGame(); };
+$('#restartBtn1').onclick = () => { startGame(); };
+$('#restartBtn2').onclick = () => { startGame(); };
+
+syncOverlays();
+renderStageGrid();
+updateUI();
+loop();
+</script>
+</body>
+</html>
