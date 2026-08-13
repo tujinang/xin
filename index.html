@@ -315,6 +315,16 @@ nav::after{
 .card ul{list-style:none;padding:0}
 .card ul li{padding:2px 0}
 .card ul li::before{content:'▸ ';color:var(--cyan);font-size:.65rem;opacity:.6}
+.project-actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}
+.project-launch{
+  display:inline-flex;align-items:center;gap:8px;padding:9px 16px;
+  color:#021018;background:linear-gradient(135deg,var(--amber),var(--cyan));
+  font-size:.78rem;font-weight:700;letter-spacing:.05em;text-decoration:none;
+  box-shadow:0 0 18px rgba(240,160,80,.22);transition:var(--transition);
+  clip-path:polygon(7px 0,100% 0,100% calc(100% - 7px),calc(100% - 7px) 100%,0 100%,0 7px);
+}
+.project-launch:hover{transform:translateY(-2px);box-shadow:0 0 28px rgba(0,212,224,.38)}
+.project-launch:focus-visible{outline:2px solid var(--cyan);outline-offset:3px}
 .card .stat{font-size:1.8rem;font-weight:900;color:var(--cyan);line-height:1}
 .card .stat-label{font-size:.76rem;color:var(--text-tertiary);margin-top:4px;letter-spacing:.04em}
 
@@ -613,6 +623,11 @@ footer .quote{color:var(--cyan);font-weight:500;letter-spacing:.03em}
         <li>独立设计并完成一款名为"银河防御"的飞机大战主题 2D 射击游戏，全程使用 AI 编程助手进行代码生成与迭代</li>
         <li>通过 AI 工具完成游戏音效、爆炸动画与背景滚动等视觉效果的快速集成，使整体用户体验提升显著</li>
       </ul>
+      <div class="project-actions">
+        <a class="project-launch" href="galaxy-defense/index.html" target="_blank" rel="noopener" aria-label="在新窗口启动银河防御游戏">
+          <span aria-hidden="true">▶</span> 启动游戏
+        </a>
+      </div>
     </div>
 
     <div class="card col-3 accent-magenta">
