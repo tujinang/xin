@@ -81,6 +81,10 @@
     .btns{display:flex;gap:12px;flex-wrap:wrap;margin-top:18px}
     button{pointer-events:auto;border:none;border-radius:14px;padding:12px 18px;font-size:15px;font-weight:800;color:white;background:linear-gradient(135deg,#71d8ff,#8a77ff);cursor:pointer}
     button.alt{background:linear-gradient(135deg,#57ffbe,#71d8ff)} button.warn{background:linear-gradient(135deg,#ff8aa8,#ffb16c)}
+    .bossSelect{margin-top:22px;padding-top:16px;border-top:1px solid rgba(180,210,255,.18)}
+    .bossSelectTitle{font-size:13px;font-weight:800;color:#dce8ff;margin-bottom:10px}.bossButtons{display:flex;gap:8px;flex-wrap:wrap}
+    .bossButtons button{padding:8px 11px;font-size:12px;background:linear-gradient(135deg,rgba(56,116,210,.92),rgba(132,83,210,.92))}
+    .bossButtons .empty{font-size:12px;color:#8fa7d9}
     @media (max-width:900px){#bottomRight{width:min(92vw,360px)}.skillGrid{grid-template-columns:1fr}#topLeft,#controls{max-width:min(92vw,430px)}}
   </style>
 </head>
@@ -137,6 +141,7 @@
         <button id="startBtn">开始游戏</button>
         <button class="alt" id="helpBtn">玩法说明</button>
       </div>
+      <div class="bossSelect"><div class="bossSelectTitle">已通关 Boss · 快速挑战（保留最高战机等级）</div><div id="bossButtons" class="bossButtons"></div></div>
     </div>
   </div>
 
@@ -179,7 +184,7 @@ const ui = {
   cd1t:$('#cd1t'), cd2t:$('#cd2t'), cd3t:$('#cd3t'), cd4t:$('#cd4t'),
   skill2:$('#skill2'), skill3:$('#skill3'), skill4:$('#skill4'),
   start:$('#startOverlay'), pause:$('#pauseOverlay'), end:$('#endOverlay'),
-  endTitle:$('#endTitle'), endDesc:$('#endDesc')
+  endTitle:$('#endTitle'), endDesc:$('#endDesc'), bossButtons:$('#bossButtons')
 };
 
 const GameState = {
@@ -199,7 +204,7 @@ const stars = [], particles = [], bullets = [], enemyBullets = [], enemies = [],
 for(let i=0;i<160;i++) stars.push({x:Math.random()*W,y:Math.random()*H,r:Math.random()*2+.3,s:Math.random()*1.3+.3,a:Math.random()*.8+.2});
 const mouse = {x:W/2,y:H*.8,active:false};
 
-let gameTime = 0, spawnTimer = 0, stage = 1, stageKills = 0, bossAppeared = false, stageCleared = false;
+let gameTime = 0, spawnTimer = 0, bossItemTimer = 0, stage = 1, stageKills = 0, bossAppeared = false, stageCleared = false, bossChallenge = false;
 
 const bossList = [
   {name:"青鸾机神", sub:"风羽离火", hp:700, color:"#71d8ff", kind:"bird", pattern:1},
@@ -213,6 +218,31 @@ const bossList = [
   {name:"玄武重垒", sub:"深空壁垒", hp:2700, color:"#79ffc9", kind:"turtle", pattern:9},
   {name:"鲲鹏星舰", sub:"天渊跃迁", hp:3200, color:"#9b7cff", kind:"roc", pattern:10},
 ];
+
+const progress = {
+  cleared: Math.max(0, Math.min(10, Number(localStorage.getItem('galaxyDefenseClearedBosses')) || 0)),
+  level: Math.max(1, Number(localStorage.getItem('galaxyDefenseHighestLevel')) || 1)
+};
+
+function saveProgress(){
+  progress.level = Math.max(progress.level, player.level);
+  localStorage.setItem('galaxyDefenseClearedBosses', progress.cleared);
+  localStorage.setItem('galaxyDefenseHighestLevel', progress.level);
+  renderBossButtons();
+}
+function renderBossButtons(){
+  ui.bossButtons.innerHTML='';
+  if(progress.cleared===0){
+    ui.bossButtons.innerHTML='<span class="empty">通关任意 Boss 后即可解锁快速挑战。</span>';
+    return;
+  }
+  bossList.slice(0,progress.cleared).forEach((b,i)=>{
+    const btn=document.createElement('button');
+    btn.textContent=`${i+1}. ${b.name}`;
+    btn.onclick=()=>startBossChallenge(i+1);
+    ui.bossButtons.appendChild(btn);
+  });
+}
 
 const player = {
   x:W/2,y:H*.82,w:28,h:42,speed:5.6,life:8,maxLife:8,shootCd:0,
@@ -443,6 +473,17 @@ function dropItem(x,y){
 
   items.push({x,y,vx:rand(-.5,.5),vy:rand(1,1.8),r:12,type});
 }
+function spawnBossSupply(){
+  const activeBossItems=items.filter(it=>it.bossSupply).length;
+  if(!boss || activeBossItems>=5 || Math.random()>.9) return;
+  const roll=Math.random();
+  const type=roll<.4?'bossLife':roll<.72?'bossShield':'bossRefresh';
+  items.push({
+    x:rand(48,W-48),y:rand(125,Math.max(150,H*.38)),
+    vx:rand(-.16,.16),vy:rand(.12,.28),r:18,type,bossSupply:true,
+    phase:rand(0,Math.PI*2)
+  });
+}
 function damagePlayer(n=1){
   if(state !== GameState.PLAYING) return;
   if(player.inv>0) return;
@@ -478,6 +519,7 @@ function spawnBoss(){
     t:0,shootCd:0
   };
   bossAppeared = true;
+  bossItemTimer = 40;
   showMsg(`第 ${stage} 关 Boss`, `${d.name}·${d.sub}`, 2600);
 }
 function nextStage(){
@@ -621,6 +663,11 @@ function update(){
       boss.shootCd = Math.max(14,42-boss.pattern*2);
     }
     if(dist(boss,player)<76) damagePlayer(1);
+    bossItemTimer--;
+    if(bossItemTimer<=0){
+      spawnBossSupply();
+      bossItemTimer=150;
+    }
   }
 
   bullets.forEach((b,bi)=>{
@@ -653,9 +700,19 @@ function update(){
         player.score += 1200 + stage*360;
         gainExp(140 + stage*24);
         burst(boss.x,boss.y,boss.color,56);
+        progress.cleared=Math.max(progress.cleared,stage);
+        saveProgress();
         boss = null;
         stageCleared = true;
-        showMsg(`第 ${stage} 关完成`,`跃迁至下一星域`,2200);
+        showMsg(`第 ${stage} 关完成`,bossChallenge?`Boss 挑战成功 · 等级 ${player.level} 已保留`:`跃迁至下一星域`,2200);
+        if(bossChallenge){
+          clearPendingStageTimer();
+          pendingNextStageTimer=setTimeout(()=>{
+            pendingNextStageTimer=null;
+            endGame(true,'Boss 挑战完成',`${bossList[stage-1].name} 已再次被击破，战机等级已保存。`);
+          },1700);
+          return;
+        }
         clearPendingStageTimer();
         pendingNextStageTimer = setTimeout(() => {
           pendingNextStageTimer = null;
@@ -699,16 +756,21 @@ function update(){
   });
 
   items.forEach((it,i)=>{
-    it.x+=it.vx; it.y+=it.vy;
-    if(dist(it,player)<24){
+    it.phase=(it.phase||0)+.025;
+    it.x+=it.vx+Math.sin(it.phase)*.08; it.y+=it.vy;
+    if(dist(it,player)<(it.bossSupply?34:24)){
       if(it.type==="exp") gainExp(30);
       if(it.type==="life") player.life = Math.min(player.maxLife, player.life+2);
       if(it.type==="bomb") player.bomb = Math.min(5, player.bomb+1);
-      burst(it.x,it.y,it.type==="life"?"#ff6fa8":it.type==="bomb"?"#ffe07c":"#8fe8ff",10);
+      if(it.type==="bossLife") player.life=Math.min(player.maxLife,player.life+Math.max(3,Math.ceil(player.maxLife*.4)));
+      if(it.type==="bossShield") player.shield=Math.max(player.shield,360);
+      if(it.type==="bossRefresh") Object.assign(skill,{burstCd:0,beamCd:0,shieldCd:0,overdriveCd:0});
+      const itemColor=it.type==="bossLife"?"#57ff9a":it.type==="bossShield"?"#55bfff":it.type==="bossRefresh"?"#b77aff":it.type==="life"?"#ff6fa8":it.type==="bomb"?"#ffe07c":"#8fe8ff";
+      burst(it.x,it.y,itemColor,16);
       items.splice(i,1);
       return;
     }
-    if(it.y>H+30) items.splice(i,1);
+    if(it.y>H+50||it.x<-50||it.x>W+50) items.splice(i,1);
   });
 
   particles.forEach((p,i)=>{
@@ -758,15 +820,23 @@ function drawPlayer(){
   if(player.inv>0 && ((player.inv/4)|0)%2===0) ctx.globalAlpha=.45;
 
   const map = [
-    "..2..",
-    ".121.",
-    "23332",
-    ".111.",
-    ".3.3.",
-    "3...3"
+    ".....2.....",
+    "....121....",
+    "....121....",
+    "...11211...",
+    "..1112111..",
+    ".113333311.",
+    "11132223111",
+    "..1322231..",
+    "...32223...",
+    "..3..2..3..",
+    ".3...2...3."
   ];
-  const palette = {1:"#eaf7ff",2:"#ff93d0",3:"#71d8ff"};
-  pixelSprite(player.x,player.y,6,map,palette);
+  const palette = {1:"#5c8dff",2:"#e9f5ff",3:"#8d5cff"};
+  ctx.save();
+  ctx.shadowBlur=16;ctx.shadowColor="#746dff";
+  pixelSprite(player.x,player.y,4,map,palette);
+  ctx.restore();
 
   if(player.shield>0){
     ctx.save();
@@ -783,16 +853,16 @@ function drawPlayer(){
 function drawEnemy(e){
   let map,pal;
   if(e.type==="small"){
-    map=["..1..",".111.","11311",".1.1.","2...2"];
-    pal={1:"#87b6ff",2:"#a36dff",3:"#dceaff"};
+    map=["2.....2",".1...1.",".11311.","1113111","..111..","..2.2.."];
+    pal={1:"#ff657f",2:"#ffb05f",3:"#fff0dd"};
   }else if(e.type==="medium"){
-    map=["..111..",".12221.","1123211",".1...1.","2.....2"];
-    pal={1:"#ff8ea8",2:"#ffb4c6",3:"#fff0f5"};
+    map=["2.......2",".11...11.","111232111",".1123211.","..11111..","..2...2.."];
+    pal={1:"#ff486f",2:"#ffa45e",3:"#fff3df"};
   }else{
-    map=[".1.1.","11311",".111.","2...2"];
-    pal={1:"#9d7aff",2:"#71d8ff",3:"#f3eaff"};
+    map=["2.....2","11...11",".11311.","..111..",".1...1.","2.....2"];
+    pal={1:"#d84dff",2:"#ff6f91",3:"#fff0ff"};
   }
-  pixelSprite(e.x,e.y,6,map,pal);
+  ctx.save();ctx.shadowBlur=10;ctx.shadowColor=pal[1];pixelSprite(e.x,e.y,5,map,pal);ctx.restore();
 }
 function bossSprite(kind,color){
   const c1=color, c2="#10183f", c3="#ffffff", c4="#ff9fd3";
@@ -841,6 +911,26 @@ function drawBullets(){
 }
 function drawItems(){
   items.forEach(it=>{
+    if(it.bossSupply){
+      const color=it.type==="bossLife"?"#57ff91":it.type==="bossShield"?"#55bfff":"#b46dff";
+      const radius=18+Math.sin(gameTime*.08+it.phase)*1.2;
+      ctx.save();
+      ctx.shadowBlur=18;ctx.shadowColor=color;
+      const orb=ctx.createRadialGradient(it.x-5,it.y-6,3,it.x,it.y,radius);
+      orb.addColorStop(0,"rgba(255,255,255,.95)");orb.addColorStop(.25,color);orb.addColorStop(1,"rgba(10,18,50,.25)");
+      ctx.fillStyle=orb;ctx.beginPath();ctx.arc(it.x,it.y,radius,0,Math.PI*2);ctx.fill();
+      ctx.strokeStyle="rgba(255,255,255,.65)";ctx.lineWidth=2;ctx.stroke();
+      ctx.strokeStyle="#f3fbff";ctx.fillStyle="#f3fbff";ctx.lineWidth=4;ctx.lineCap="round";ctx.lineJoin="round";
+      if(it.type==="bossLife"){
+        ctx.beginPath();ctx.moveTo(it.x-8,it.y);ctx.lineTo(it.x+8,it.y);ctx.moveTo(it.x,it.y-8);ctx.lineTo(it.x,it.y+8);ctx.stroke();
+      }else if(it.type==="bossShield"){
+        ctx.beginPath();ctx.moveTo(it.x,it.y-9);ctx.lineTo(it.x+8,it.y-5);ctx.lineTo(it.x+6,it.y+5);ctx.lineTo(it.x,it.y+10);ctx.lineTo(it.x-6,it.y+5);ctx.lineTo(it.x-8,it.y-5);ctx.closePath();ctx.stroke();
+      }else{
+        ctx.beginPath();ctx.moveTo(it.x-8,it.y+5);ctx.lineTo(it.x,it.y-7);ctx.lineTo(it.x+8,it.y+5);ctx.moveTo(it.x,it.y-6);ctx.lineTo(it.x,it.y+9);ctx.stroke();
+      }
+      ctx.restore();
+      return;
+    }
     let c="#8ce6ff";
     if(it.type==="life") c="#ff6fa8";
     if(it.type==="bomb") c="#ffd36b";
@@ -896,10 +986,12 @@ function resetGame(){
   boss=null;
   gameTime=0;
   spawnTimer=0;
+  bossItemTimer=0;
   stage=1;
   stageKills=0;
   bossAppeared=false;
   stageCleared=false;
+  bossChallenge=false;
   gameOver=false;
 
   Object.assign(player,{
@@ -911,11 +1003,31 @@ function resetGame(){
 
   updateUI();
 }
+function applySavedLevel(){
+  player.level=progress.level;
+  player.maxLife=8+Math.max(0,player.level-1);
+  player.life=player.maxLife;
+  player.nextExp=Math.floor(80*Math.pow(1.22,Math.max(0,player.level-1)));
+  player.exp=0;
+  player.weaponName=weaponInfo(player.level).name;
+}
 function startGame(){
   started = true;
   resetGame();
   state = GameState.PLAYING;
   showMsg("第 1 关","星海启程",1800);
+  updateUI();
+}
+function startBossChallenge(targetStage){
+  if(targetStage<1||targetStage>progress.cleared) return;
+  started=true;
+  resetGame();
+  bossChallenge=true;
+  stage=targetStage;
+  applySavedLevel();
+  state=GameState.PLAYING;
+  syncOverlays();
+  spawnBoss();
   updateUI();
 }
 function pauseGame(){
@@ -964,13 +1076,14 @@ canvas.addEventListener('mouseleave',()=>mouse.active=false);
 
 $('#startBtn').onclick = () => { startGame(); };
 $('#helpBtn').onclick = () => {
-  alert("操作：鼠标/WASD/方向键移动，Z/X/C/V使用技能，P或空格暂停，R重开。现在玩家生存能力更强，并可更快进入Boss战。");
+  alert("操作：鼠标/WASD/方向键移动，Z/X/C/V使用技能，P或空格暂停，R重开。通关后的 Boss 可在开始界面直接挑战并保留最高战机等级；Boss 战中会出现回血、护盾和技能刷新补给。");
 };
 $('#resumeBtn').onclick = () => { resumeGame(); };
 $('#restartBtn1').onclick = () => { startGame(); };
 $('#restartBtn2').onclick = () => { startGame(); };
 
 syncOverlays();
+renderBossButtons();
 updateUI();
 loop();
 </script>
