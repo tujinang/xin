@@ -32,6 +32,7 @@
     <script src="libs/examples/js/postprocessing/UnrealBloomPass.js"></script>
     <script src="libs/examples/js/postprocessing/EffectComposer.js"></script>
     <script src="person_targets.js"></script>
+    <script src="mediapipe_assets.js"></script>
     <script src="libs/mediapipe/hands.js"></script>
 </head>
 <body>
@@ -384,12 +385,14 @@ function onResults(results) {
         camTarget.phi += dx * -0.4;
 
         // 2) 握拳 vs 张开 → 形态切换
-        const tips = [8, 12, 16, 20], mcps = [5, 9, 13, 17];
+        // 折指判定：指尖到 PIP 关节的距离 vs 指尖到手腕的距离
+        // （对真实手部姿态更鲁棒，不易受透视缩短影响）
+        const tips = [8, 12, 16, 20], pips = [6, 10, 14, 18];
         let folded = 0;
         for (let i = 0; i < 4; i++) {
-            const dTip = (lm[tips[i]].x - wrist.x) ** 2 + (lm[tips[i]].y - wrist.y) ** 2;
-            const dMcp = (lm[mcps[i]].x - wrist.x) ** 2 + (lm[mcps[i]].y - wrist.y) ** 2;
-            if (dTip < dMcp * 1.2) folded++;
+            const dPip = (lm[tips[i]].x - lm[pips[i]].x) ** 2 + (lm[tips[i]].y - lm[pips[i]].y) ** 2;
+            const dWrist = (lm[tips[i]].x - wrist.x) ** 2 + (lm[tips[i]].y - wrist.y) ** 2;
+            if (dPip < dWrist * 0.4) folded++;
         }
         if (folded === 0) {
             morphTarget = 1;
@@ -400,7 +403,7 @@ function onResults(results) {
             cloudDirty = true;
             setCamStatus('✊ 握拳 → 粒子星球');
         } else {
-            setCamStatus('🤞 手势: 保持当前形态');
+            setCamStatus('🤞 手势: 保持当前形态 (折指 ' + folded + ')');
         }
     } else {
         handSeen = false;
@@ -414,6 +417,7 @@ function setCamStatus(msg) {
 
 let mpReady = false;  // 手势模型是否就绪
 let mpRetryAt = 0;    // 失败后重建实例的节流时间
+let mpSending = false; // 识别请求串行化，避免请求堆积
 
 function cameraLoop() {
     if (!camActive) return;
@@ -422,10 +426,17 @@ function cameraLoop() {
     if (video.readyState >= 2 && video.videoWidth > 0) {
         previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
         previewCtx.drawImage(video, 0, 0, previewCanvas.width, previewCanvas.height);
-        if (hands && mpReady) {
+        if (hands && mpReady && !mpSending) {
+            mpSending = true;
             try {
-                hands.send({ image: video }).catch(mpFail);
+                hands.send({ image: video }).then(function () {
+                    mpSending = false;
+                }).catch(function () {
+                    mpSending = false;
+                    mpFail();
+                });
             } catch (e) {
+                mpSending = false;
                 mpFail();
             }
         }
@@ -487,13 +498,32 @@ async function startCamera() {
     }
 }
 
+// MediaPipe 资源定位：优先使用内嵌资源 (mediapipe_assets.js)，双击 html
+// 打开也能加载模型；内嵌缺失时回退到服务器/本地文件
+const mpBlobUrls = {};
+function locateMpFile(f) {
+    if (window.MP_ASSETS && window.MP_ASSETS[f]) {
+        if (!mpBlobUrls[f]) {
+            const bin = atob(window.MP_ASSETS[f]);
+            const bytes = new Uint8Array(bin.length);
+            for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+            let mime = 'application/octet-stream';
+            if (f.slice(-3) === '.js') mime = 'text/javascript';
+            else if (f.slice(-5) === '.wasm') mime = 'application/wasm';
+            mpBlobUrls[f] = URL.createObjectURL(new Blob([bytes], { type: mime }));
+        }
+        return mpBlobUrls[f];
+    }
+    return 'libs/mediapipe/' + f;
+}
+
 function initHands() {
     if (!window.Hands) {
         setCamStatus('⚠️ 手势库未加载');
         return Promise.reject(new Error('no-hands'));
     }
     const h = new Hands({
-        locateFile: function (f) { return 'libs/mediapipe/' + f; }
+        locateFile: locateMpFile
     });
     h.setOptions({
         maxNumHands: 1,
