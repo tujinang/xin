@@ -293,7 +293,10 @@ let cloudFirst = true; // 首帧必须更新一次 (例如 ?morph=1 直接进入
 
 function updateCloud() {
     const prevMorph = morph;
-    morph += (morphTarget - morph) * 0.05;
+    // 握拳回缩更快 (0.12)，张开稍缓 (0.07)，接近目标时直接收敛
+    const rate = morphTarget < morph ? 0.12 : 0.07;
+    morph += (morphTarget - morph) * rate;
+    if (Math.abs(morphTarget - morph) < 0.01) morph = morphTarget;
 
     if (cloudDirty && (cloudFirst || Math.abs(morph - prevMorph) > 1e-6)) {
         cloudFirst = false;
@@ -398,7 +401,7 @@ function onResults(results) {
             morphTarget = 1;
             cloudDirty = true;
             setCamStatus('✋ 张开手掌 → 人物轮廓');
-        } else if (folded >= 3) {
+        } else if (folded >= 2) {
             morphTarget = 0;
             cloudDirty = true;
             setCamStatus('✊ 握拳 → 粒子星球');
