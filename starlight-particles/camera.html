@@ -377,6 +377,19 @@ function drawHand(lm) {
     }
 }
 
+// 手指屈曲角：MCP→PIP 与 PIP→TIP 两段向量的夹角（3D 含 z）
+// 伸直 ≈0 弧度；弯曲 90° ≈1.57；握拳 ≈2.6+
+// 3D 角度与手朝向无关，手指指向镜头时依然有效
+function fingerFlexion(mcp, pip, tip) {
+    const v1x = pip.x - mcp.x, v1y = pip.y - mcp.y, v1z = pip.z - mcp.z;
+    const v2x = tip.x - pip.x, v2y = tip.y - pip.y, v2z = tip.z - pip.z;
+    const d1 = Math.sqrt(v1x * v1x + v1y * v1y + v1z * v1z);
+    const d2 = Math.sqrt(v2x * v2x + v2y * v2y + v2z * v2z);
+    if (d1 < 1e-6 || d2 < 1e-6) return 0;
+    const dot = v1x * v2x + v1y * v2y + v1z * v2z;
+    return Math.acos(Math.max(-1, Math.min(1, dot / (d1 * d2))));
+}
+
 function onResults(results) {
     // 视频画面已由 cameraLoop 逐帧绘制，这里只叠加手部骨架
     if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
@@ -393,45 +406,38 @@ function onResults(results) {
         const roll = Math.atan2(v1x + v2x, -(v1y + v2y)); // 与竖直方向的夹角
         camTarget.phi += roll * -0.35;
 
-        // 2) 手部紧凑度判定：拳头（无论握紧握松）→ 人物图片；张手 → 粒子星球
-        // 紧凑度 = 指尖到掌心(中指MCP)的平均距离 ÷ 手腕到掌心的距离
-        // 紧拳 ≈0.3-0.6 / 松拳 ≈0.6-1.1 / 张手 >1.3（斜对镜头时会略低）
-        const palmC = lm[9];
-        let tipSum = 0;
-        for (let i = 0; i < 4; i++) {
-            const t = [8, 12, 16, 20][i];
-            tipSum += Math.hypot(lm[t].x - palmC.x, lm[t].y - palmC.y);
-        }
-        const tipAvg = tipSum / 4;
-        const palmRef = Math.hypot(wrist.x - palmC.x, wrist.y - palmC.y);
-        const compact = tipAvg / Math.max(palmRef, 0.01);
-
-        // 张手辅助判定：四指全部伸展（指尖远离 PIP 关节）
-        const tips = [8, 12, 16, 20], pips = [6, 10, 14, 18];
-        let folded = 0;
-        for (let i = 0; i < 4; i++) {
-            const dPip = (lm[tips[i]].x - lm[pips[i]].x) ** 2 + (lm[tips[i]].y - lm[pips[i]].y) ** 2;
-            const dWrist = (lm[tips[i]].x - wrist.x) ** 2 + (lm[tips[i]].y - wrist.y) ** 2;
-            if (dPip < dWrist * 0.4) folded++;
-        }
-
-        // 张手第三通道（深度）：手指指向镜头时 2D 判定会失效，
-        // 但张手时指尖 z 明显小于掌心 z（更靠近镜头），握拳时两者相近
+        // 2) z 深度辅助：张手时指尖 z 明显小于掌心 z（更靠近镜头），
+        // 手指指向镜头时 2D 判定失效，此通道兜底
         let zSum = 0;
         for (let i = 0; i < 4; i++) {
             zSum += lm[[8, 12, 16, 20][i]].z - lm[9].z;
         }
         const zDelta = zSum / 4;
 
-        // 2) 手型判定（带 2 帧确认防抖，约 60ms，既稳定又及时）
-        // 判定顺序关键：z 深度通道必须先于握拳分支——手指指向镜头时
-        // 2D 紧凑度≈0 会被误判为握拳，必须先排除这种「深度张手」
-        const fistThr = 1.15;
-        const palmThr = (morphTarget >= 0.5) ? 0.95 : 1.25;
+        // 2) 手型判定：3D 手指屈曲角（方向无关）
+        // 每根手指：MCP→PIP 与 PIP→TIP 的夹角，伸直<0.9rad，弯曲>1.2rad
+        const fingers = [[5, 6, 8], [9, 10, 12], [13, 14, 16], [17, 18, 20]];
+        let extended = 0, curled = 0;
+        for (let i = 0; i < 4; i++) {
+            const fx = fingerFlexion(lm[fingers[i][0]], lm[fingers[i][1]], lm[fingers[i][2]]);
+            if (fx < 0.9) extended++;
+            else if (fx > 1.2) curled++;
+        }
+
         let detected = 'hold';
-        if (zDelta < -0.15) detected = 'palm';
-        else if (compact < fistThr) detected = 'fist';
-        else if (compact > palmThr || folded === 0) detected = 'palm';
+        if (morphTarget >= 0.5) {
+            // 人物形态：张手宽松判定（两指伸直即可回星球），
+            // 握拳需明确（三指弯曲才保持图片）
+            if (extended >= 2 && curled <= 1) detected = 'palm';
+            else if (curled >= 3) detected = 'fist';
+        } else {
+            // 星球形态：握拳宽松判定（两指弯曲即可变图片），
+            // 张手需明确（三指伸直才保持星球）
+            if (curled >= 2 && extended <= 1) detected = 'fist';
+            else if (extended >= 3) detected = 'palm';
+        }
+        // z 深度辅助：手指明显伸向镜头 = 张手（2D 失效场景兜底）
+        if (detected === 'hold' && zDelta < -0.15) detected = 'palm';
 
         if (detected === gestureState) {
             gestureCount++;
@@ -443,14 +449,14 @@ function onResults(results) {
             // 握拳（紧或松）→ 人物图片
             morphTarget = 1;
             cloudDirty = true;
-            setCamStatus('✊ 握拳 → 人物图片 (紧凑度 ' + compact.toFixed(2) + ')');
+            setCamStatus('✊ 握拳 → 人物图片 (伸 ' + extended + ' 弯 ' + curled + ')');
         } else if (gestureState === 'palm' && gestureCount >= 2) {
             // 张开手掌 → 粒子星球
             morphTarget = 0;
             cloudDirty = true;
-            setCamStatus('✋ 张开手掌 → 粒子星球 (紧凑度 ' + compact.toFixed(2) + ')');
+            setCamStatus('✋ 张开手掌 → 粒子星球 (伸 ' + extended + ' 弯 ' + curled + ')');
         } else {
-            setCamStatus('🤞 手势确认中 (紧凑度 ' + compact.toFixed(2) + ' 折指 ' + folded + ' z' + zDelta.toFixed(2) + ')');
+            setCamStatus('🤞 手势确认中 (伸 ' + extended + ' 弯 ' + curled + ' z' + zDelta.toFixed(2) + ')');
         }
     } else {
         handSeen = false;
