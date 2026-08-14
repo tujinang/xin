@@ -46,6 +46,7 @@
 <video id="input-video" autoplay muted playsinline></video>
 <canvas id="webcam-preview" width="160" height="120"></canvas>
 <button id="camBtn">启动摄像头</button>
+<div id="mpdebug" style="display:none">NONE</div>
 <div id="brightness-ui">
     <label>粒子亮度</label>
     <input type="range" id="brightnessSlider" min="30" max="250" value="100" step="1">
@@ -402,7 +403,8 @@ function setCamStatus(msg) {
     statusEl.innerHTML = '形态: 星球 ' + Math.round((1 - morph) * 100) + '% | 人物 ' + Math.round(morph * 100) + '%<br>' + msg;
 }
 
-let mpFailed = false; // 手势模型加载失败只提示一次
+let mpReady = false;  // 手势模型是否就绪
+let mpRetryAt = 0;    // 失败后重建实例的节流时间
 
 function cameraLoop() {
     if (!camActive) return;
@@ -411,22 +413,33 @@ function cameraLoop() {
     if (video.readyState >= 2 && video.videoWidth > 0) {
         previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
         previewCtx.drawImage(video, 0, 0, previewCanvas.width, previewCanvas.height);
-        if (hands) {
+        if (hands && mpReady) {
             try {
-                hands.send({ image: video }).catch(function () {
-                    if (!mpFailed) {
-                        mpFailed = true;
-                        setCamStatus('⚠️ 手势模型加载失败：请通过 启动服务器.bat 打开页面');
-                    }
-                });
+                hands.send({ image: video }).catch(mpFail);
             } catch (e) {
-                if (!mpFailed) {
-                    mpFailed = true;
-                    setCamStatus('⚠️ 手势模型加载失败：请通过 启动服务器.bat 打开页面');
-                }
+                mpFail();
             }
         }
     }
+}
+
+// 模型加载失败：丢弃失效实例并重建。MediaPipe 内部会缓存失败的加载
+// Promise，不重建实例的话后续所有识别都会永久失败
+function mpFail() {
+    mpReady = false;
+    const now = Date.now();
+    if (now < mpRetryAt) return;
+    mpRetryAt = now + 3000;
+    hands = null;
+    setCamStatus('⚠️ 手势模型加载中，请稍候…');
+    initHands().then(function () {
+        mpReady = true;
+        document.getElementById('mpdebug').textContent = 'READY';
+        setCamStatus('🖐️ 将手放入画面');
+    }).catch(function () {
+        document.getElementById('mpdebug').textContent = 'FAIL';
+        setCamStatus('⚠️ 手势模型加载失败：请通过 启动服务器.bat 打开页面');
+    });
 }
 
 async function startCamera() {
@@ -434,7 +447,6 @@ async function startCamera() {
     camBtn.textContent = '摄像头启动中...';
     try {
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error('no-media');
-        if (!hands) initHands();
         const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480, facingMode: 'user' } });
         video.srcObject = stream;
         await video.play();
@@ -443,6 +455,17 @@ async function startCamera() {
         camBtn.textContent = '关闭摄像头';
         setCamStatus('🖐️ 将手放入画面');
         cameraLoop();
+        // 预加载手势模型：加载成功后才开始逐帧识别，避免首次竞态导致永久失效
+        if (!hands) {
+            initHands().then(function () {
+                mpReady = true;
+                document.getElementById('mpdebug').textContent = 'READY';
+                setCamStatus('🖐️ 将手放入画面');
+            }).catch(function () {
+                document.getElementById('mpdebug').textContent = 'FAIL';
+                setCamStatus('⚠️ 手势模型加载失败：请通过 启动服务器.bat 打开页面');
+            });
+        }
     } catch (e) {
         let msg;
         if (e && e.name === 'NotAllowedError') msg = '摄像头权限被拒绝';
@@ -458,18 +481,20 @@ async function startCamera() {
 function initHands() {
     if (!window.Hands) {
         setCamStatus('⚠️ 手势库未加载');
-        return;
+        return Promise.reject(new Error('no-hands'));
     }
-    hands = new Hands({
+    const h = new Hands({
         locateFile: function (f) { return 'libs/mediapipe/' + f; }
     });
-    hands.setOptions({
+    h.setOptions({
         maxNumHands: 1,
         modelComplexity: 1,
         minDetectionConfidence: 0.5,
         minTrackingConfidence: 0.5
     });
-    hands.onResults(onResults);
+    h.onResults(onResults);
+    hands = h;
+    return h.initialize(); // 显式预加载模型，返回加载 Promise
 }
 
 // 关闭摄像头：停止视频轨道，释放设备
