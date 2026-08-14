@@ -293,10 +293,10 @@ let cloudFirst = true; // 首帧必须更新一次 (例如 ?morph=1 直接进入
 
 function updateCloud() {
     const prevMorph = morph;
-    // 回缩方向更快 (0.12)，展开方向也保持敏捷 (0.10)，接近目标时直接收敛
-    const rate = morphTarget < morph ? 0.12 : 0.10;
+    // 回缩更快 (0.15)，展开敏捷 (0.13)，接近目标时直接收敛
+    const rate = morphTarget < morph ? 0.15 : 0.13;
     morph += (morphTarget - morph) * rate;
-    if (Math.abs(morphTarget - morph) < 0.01) morph = morphTarget;
+    if (Math.abs(morphTarget - morph) < 0.02) morph = morphTarget;
 
     if (cloudDirty && (cloudFirst || Math.abs(morph - prevMorph) > 1e-6)) {
         cloudFirst = false;
@@ -351,6 +351,8 @@ function animate() {
 let hands = null;
 let handSeen = false;
 let camActive = false;
+let gestureState = 'hold'; // 当前手型状态: fist / palm / hold
+let gestureCount = 0;      // 连续确认帧数
 
 const HAND_CONNECTIONS = [
     [0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[5,9],[9,10],[10,11],[11,12],
@@ -382,10 +384,14 @@ function onResults(results) {
         const lm = results.multiHandLandmarks[0];
         drawHand(lm);
 
-        // 1) 手掌倾斜 → 旋转视角
-        const wrist = lm[0], midBase = lm[9];
-        const dx = midBase.x - wrist.x;
-        camTarget.phi += dx * -0.4;
+        // 1) 手部旋转 → 转换视角（握拳或张手均有效）
+        // 用「手腕→食指指根」与「手腕→中指指根」两个方向的平均偏转角，
+        // 角度信号与手型无关，拳头、手掌旋转都可靠
+        const wrist = lm[0];
+        const v1x = lm[5].x - wrist.x, v1y = lm[5].y - wrist.y;
+        const v2x = lm[9].x - wrist.x, v2y = lm[9].y - wrist.y;
+        const roll = Math.atan2(v1x + v2x, -(v1y + v2y)); // 与竖直方向的夹角
+        camTarget.phi += roll * -0.35;
 
         // 2) 手部紧凑度判定：拳头（无论握紧握松）→ 人物图片；张手 → 粒子星球
         // 紧凑度 = 指尖到掌心(中指MCP)的平均距离 ÷ 手腕到掌心的距离
@@ -417,27 +423,34 @@ function onResults(results) {
         }
         const zDelta = zSum / 4;
 
+        // 2) 手型判定（带 2 帧确认防抖，约 60ms，既稳定又及时）
         // 判定顺序关键：z 深度通道必须先于握拳分支——手指指向镜头时
         // 2D 紧凑度≈0 会被误判为握拳，必须先排除这种「深度张手」
         const fistThr = 1.15;
         const palmThr = (morphTarget >= 0.5) ? 0.95 : 1.25;
-        if (zDelta < -0.15) {
-            // 指尖明显比掌心更靠近镜头 = 手指伸出 → 张手 → 粒子星球
-            morphTarget = 0;
-            cloudDirty = true;
-            setCamStatus('✋ 张开手掌(深度) → 粒子星球 (z ' + zDelta.toFixed(2) + ')');
-        } else if (compact < fistThr) {
+        let detected = 'hold';
+        if (zDelta < -0.15) detected = 'palm';
+        else if (compact < fistThr) detected = 'fist';
+        else if (compact > palmThr || folded === 0) detected = 'palm';
+
+        if (detected === gestureState) {
+            gestureCount++;
+        } else {
+            gestureState = detected;
+            gestureCount = 1;
+        }
+        if (gestureState === 'fist' && gestureCount >= 2) {
             // 握拳（紧或松）→ 人物图片
             morphTarget = 1;
             cloudDirty = true;
             setCamStatus('✊ 握拳 → 人物图片 (紧凑度 ' + compact.toFixed(2) + ')');
-        } else if (compact > palmThr || folded === 0) {
+        } else if (gestureState === 'palm' && gestureCount >= 2) {
             // 张开手掌 → 粒子星球
             morphTarget = 0;
             cloudDirty = true;
             setCamStatus('✋ 张开手掌 → 粒子星球 (紧凑度 ' + compact.toFixed(2) + ')');
         } else {
-            setCamStatus('🤞 手势: 保持当前形态 (紧凑度 ' + compact.toFixed(2) + ' 折指 ' + folded + ' z' + zDelta.toFixed(2) + ')');
+            setCamStatus('🤞 手势确认中 (紧凑度 ' + compact.toFixed(2) + ' 折指 ' + folded + ' z' + zDelta.toFixed(2) + ')');
         }
     } else {
         handSeen = false;
