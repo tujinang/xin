@@ -110,13 +110,24 @@ function tilt(x, y, z, tx, tz) {
     return [x2, y2, z1];
 }
 
-// 星球形态：60% 球体 + 40% 两个立体环 (同 xingqiu 布局)
+// 生成一条立体环的随机点 (圆环管截面均匀分布 + 倾斜姿态)
+function ringPoint(inner, outer, tube, tiltX, tiltZ) {
+    const a0 = Math.random() * 2 * Math.PI;
+    const R = inner + Math.random() * (outer - inner);
+    const a1 = Math.random() * 2 * Math.PI;
+    const rr = tube * Math.sqrt(Math.random());
+    return tilt(R * Math.cos(a0) + rr * Math.cos(a1), rr * Math.sin(a1), R * Math.sin(a0), tiltX, tiltZ);
+}
+
+// 星球形态：35% 中心球体 + 65% 四条立体环，将中心粒子向外分散
 function buildNebula() {
-    const planetEnd = Math.floor(N * 0.6);
-    const ring1End = Math.floor(N * 0.8);
+    const pEnd = Math.floor(N * 0.35);  // 中心球形粒子云
+    const r1End = Math.floor(N * 0.50); // 环1: 内层光环
+    const r2End = Math.floor(N * 0.65); // 环2: 中层光环
+    const r3End = Math.floor(N * 0.82); // 环3: 外层光环
     for (let i = 0; i < N; i++) {
         let x, y, z;
-        if (i < planetEnd) {
+        if (i < pEnd) {
             const u = Math.random(), v = Math.random();
             const th = 2 * Math.PI * u;
             const ph = Math.acos(2 * v - 1);
@@ -125,19 +136,17 @@ function buildNebula() {
             x = r * Math.sin(ph) * Math.cos(th);
             y = r * Math.sin(ph) * Math.sin(th);
             z = r * Math.cos(ph);
-        } else if (i < ring1End) {
-            const a0 = Math.random() * 2 * Math.PI;
-            const R = 70 + Math.random() * 40;
-            const a1 = Math.random() * 2 * Math.PI;
-            const rr = 8 * Math.sqrt(Math.random());
-            const t = tilt(R * Math.cos(a0) + rr * Math.cos(a1), rr * Math.sin(a1), R * Math.sin(a0), Math.PI / 3, Math.PI / 6);
+        } else if (i < r1End) {
+            const t = ringPoint(65, 95, 6, Math.PI / 3, Math.PI / 6);
+            x = t[0]; y = t[1]; z = t[2];
+        } else if (i < r2End) {
+            const t = ringPoint(85, 125, 8, -Math.PI / 4, -Math.PI / 8);
+            x = t[0]; y = t[1]; z = t[2];
+        } else if (i < r3End) {
+            const t = ringPoint(105, 155, 10, Math.PI / 2.5, Math.PI / 5);
             x = t[0]; y = t[1]; z = t[2];
         } else {
-            const a0 = Math.random() * 2 * Math.PI;
-            const R = 80 + Math.random() * 60;
-            const a1 = Math.random() * 2 * Math.PI;
-            const rr = 12 * Math.sqrt(Math.random());
-            const t = tilt(R * Math.cos(a0) + rr * Math.cos(a1), rr * Math.sin(a1), R * Math.sin(a0), -Math.PI / 4, -Math.PI / 8);
+            const t = ringPoint(125, 175, 12, -Math.PI / 3, Math.PI / 4);
             x = t[0]; y = t[1]; z = t[2];
         }
         nebulaPos[i * 3] = x;
