@@ -362,10 +362,7 @@ function drawHand(lm) {
 }
 
 function onResults(results) {
-    previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
-    if (results.image) {
-        previewCtx.drawImage(results.image, 0, 0, previewCanvas.width, previewCanvas.height);
-    }
+    // 视频画面已由 cameraLoop 逐帧绘制，这里只叠加手部骨架
     if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
         handSeen = true;
         const lm = results.multiHandLandmarks[0];
@@ -405,11 +402,30 @@ function setCamStatus(msg) {
     statusEl.innerHTML = '形态: 星球 ' + Math.round((1 - morph) * 100) + '% | 人物 ' + Math.round(morph * 100) + '%<br>' + msg;
 }
 
+let mpFailed = false; // 手势模型加载失败只提示一次
+
 function cameraLoop() {
     if (!camActive) return;
     requestAnimationFrame(cameraLoop);
-    if (hands && video.readyState >= 2 && video.videoWidth > 0) {
-        hands.send({ image: video }); // 异步识别，结果经 onResults 回调
+    // 只要有摄像头画面就显示预览，不依赖手势识别是否可用
+    if (video.readyState >= 2 && video.videoWidth > 0) {
+        previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+        previewCtx.drawImage(video, 0, 0, previewCanvas.width, previewCanvas.height);
+        if (hands) {
+            try {
+                hands.send({ image: video }).catch(function () {
+                    if (!mpFailed) {
+                        mpFailed = true;
+                        setCamStatus('⚠️ 手势模型加载失败：请通过 启动服务器.bat 打开页面');
+                    }
+                });
+            } catch (e) {
+                if (!mpFailed) {
+                    mpFailed = true;
+                    setCamStatus('⚠️ 手势模型加载失败：请通过 启动服务器.bat 打开页面');
+                }
+            }
+        }
     }
 }
 
@@ -423,6 +439,7 @@ async function startCamera() {
         video.srcObject = stream;
         await video.play();
         camActive = true;
+        camBtn.disabled = false; // 恢复按钮，允许点击关闭
         camBtn.textContent = '关闭摄像头';
         setCamStatus('🖐️ 将手放入画面');
         cameraLoop();
