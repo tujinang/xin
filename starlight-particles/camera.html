@@ -389,7 +389,7 @@ function onResults(results) {
 
         // 2) 手部紧凑度判定：拳头（无论握紧握松）→ 人物图片；张手 → 粒子星球
         // 紧凑度 = 指尖到掌心(中指MCP)的平均距离 ÷ 手腕到掌心的距离
-        // 紧拳 ≈0.3-0.6 / 松拳 ≈0.6-1.1 / 张手 >1.5
+        // 紧拳 ≈0.3-0.6 / 松拳 ≈0.6-1.1 / 张手 >1.3（斜对镜头时会略低）
         const palmC = lm[9];
         let tipSum = 0;
         for (let i = 0; i < 4; i++) {
@@ -399,18 +399,28 @@ function onResults(results) {
         const tipAvg = tipSum / 4;
         const palmRef = Math.hypot(wrist.x - palmC.x, wrist.y - palmC.y);
         const compact = tipAvg / Math.max(palmRef, 0.01);
+
+        // 张手辅助判定：四指全部伸展（指尖远离 PIP 关节）
+        const tips = [8, 12, 16, 20], pips = [6, 10, 14, 18];
+        let folded = 0;
+        for (let i = 0; i < 4; i++) {
+            const dPip = (lm[tips[i]].x - lm[pips[i]].x) ** 2 + (lm[tips[i]].y - lm[pips[i]].y) ** 2;
+            const dWrist = (lm[tips[i]].x - wrist.x) ** 2 + (lm[tips[i]].y - wrist.y) ** 2;
+            if (dPip < dWrist * 0.4) folded++;
+        }
+
         if (compact < 1.15) {
             // 握拳（紧或松）→ 人物图片
             morphTarget = 1;
             cloudDirty = true;
             setCamStatus('✊ 握拳 → 人物图片');
-        } else if (compact > 1.45) {
-            // 张开手掌 → 粒子星球
+        } else if (compact > 1.25 || folded === 0) {
+            // 张开手掌（紧凑度达标 或 四指全伸）→ 粒子星球
             morphTarget = 0;
             cloudDirty = true;
             setCamStatus('✋ 张开手掌 → 粒子星球');
         } else {
-            setCamStatus('🤞 手势: 保持当前形态');
+            setCamStatus('🤞 手势: 保持当前形态 (紧凑度 ' + compact.toFixed(2) + ')');
         }
     } else {
         handSeen = false;
