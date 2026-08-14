@@ -409,18 +409,35 @@ function onResults(results) {
             if (dPip < dWrist * 0.4) folded++;
         }
 
-        if (compact < 1.15) {
+        // 张手第三通道（深度）：手指指向镜头时 2D 判定会失效，
+        // 但张手时指尖 z 明显小于掌心 z（更靠近镜头），握拳时两者相近
+        let zSum = 0;
+        for (let i = 0; i < 4; i++) {
+            zSum += lm[[8, 12, 16, 20][i]].z - lm[9].z;
+        }
+        const zDelta = zSum / 4;
+
+        // 判定顺序关键：z 深度通道必须先于握拳分支——手指指向镜头时
+        // 2D 紧凑度≈0 会被误判为握拳，必须先排除这种「深度张手」
+        const fistThr = 1.15;
+        const palmThr = (morphTarget >= 0.5) ? 0.95 : 1.25;
+        if (zDelta < -0.15) {
+            // 指尖明显比掌心更靠近镜头 = 手指伸出 → 张手 → 粒子星球
+            morphTarget = 0;
+            cloudDirty = true;
+            setCamStatus('✋ 张开手掌(深度) → 粒子星球 (z ' + zDelta.toFixed(2) + ')');
+        } else if (compact < fistThr) {
             // 握拳（紧或松）→ 人物图片
             morphTarget = 1;
             cloudDirty = true;
-            setCamStatus('✊ 握拳 → 人物图片');
-        } else if (compact > 1.25 || folded === 0) {
-            // 张开手掌（紧凑度达标 或 四指全伸）→ 粒子星球
+            setCamStatus('✊ 握拳 → 人物图片 (紧凑度 ' + compact.toFixed(2) + ')');
+        } else if (compact > palmThr || folded === 0) {
+            // 张开手掌 → 粒子星球
             morphTarget = 0;
             cloudDirty = true;
-            setCamStatus('✋ 张开手掌 → 粒子星球');
+            setCamStatus('✋ 张开手掌 → 粒子星球 (紧凑度 ' + compact.toFixed(2) + ')');
         } else {
-            setCamStatus('🤞 手势: 保持当前形态 (紧凑度 ' + compact.toFixed(2) + ')');
+            setCamStatus('🤞 手势: 保持当前形态 (紧凑度 ' + compact.toFixed(2) + ' 折指 ' + folded + ' z' + zDelta.toFixed(2) + ')');
         }
     } else {
         handSeen = false;
