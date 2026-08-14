@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>星语粒子 · 摄像头手势版</title>
+    <style>
+        body{margin:0;padding:0;overflow:hidden;background:#000;font-family:'Segoe UI',Tahoma,Geneva,Verdana,sans-serif}
+        #container{position:absolute;top:0;left:0;width:100%;height:100%;z-index:1;cursor:grab;touch-action:none;user-select:none}
+        #container.dragging{cursor:grabbing}
+        #info{position:absolute;top:20px;left:20px;z-index:10;color:rgba(255,255,255,.8);pointer-events:none;user-select:none}
+        #info h1{margin:0;font-size:1.5rem;letter-spacing:2px;text-shadow:0 0 10px rgba(0,200,255,.9),0 0 24px rgba(170,80,255,.7)}
+        #info .tip{margin-top:10px;font-size:.9rem;background:rgba(0,0,0,.5);padding:10px;border-radius:8px;border-left:3px solid #00ccff}
+        #status{margin-top:5px;font-weight:bold;color:#00ffcc}
+        #camBtn{position:absolute;left:24px;bottom:24px;z-index:10;padding:8px 14px;background:rgba(7,26,48,.85);color:#bdeeff;border:1px solid #60cfff;border-radius:6px;cursor:pointer;font-size:.85rem}
+        #camBtn:hover{background:rgba(20,60,100,.9)}
+        #brightness-ui{position:absolute;right:20px;top:22%;z-index:10;display:flex;flex-direction:column;align-items:center;gap:8px;background:rgba(0,0,0,.45);padding:12px 10px;border-radius:12px;border:1px solid rgba(255,255,255,.15)}
+        #brightness-ui label{color:#bdeeff;font-size:.75rem;letter-spacing:1px}
+        #brightnessSlider{-webkit-appearance:slider-vertical;appearance:slider-vertical;width:18px;height:50vh;accent-color:#00ccff;cursor:pointer}
+        #brightnessVal{color:#00ffcc;font-size:.75rem;font-weight:bold}
+        #webcam-preview{position:absolute;right:24px;bottom:24px;width:160px;height:120px;z-index:10;border:2px solid #333;border-radius:8px;opacity:.75;transform:scaleX(-1)}
+        #input-video{display:none}
+    </style>
+    <!-- 本地 three.js (UMD 0.147) + 人物轮廓粒子坐标 + MediaPipe 手势库，双击即开 -->
+    <script src="libs/build/three.min.js"></script>
+    <script src="libs/examples/js/shaders/CopyShader.js"></script>
+    <script src="libs/examples/js/shaders/LuminosityHighPassShader.js"></script>
+    <script src="libs/examples/js/postprocessing/Pass.js"></script>
+    <script src="libs/examples/js/postprocessing/ShaderPass.js"></script>
+    <script src="libs/examples/js/postprocessing/MaskPass.js"></script>
+    <script src="libs/examples/js/postprocessing/RenderPass.js"></script>
+    <script src="libs/examples/js/postprocessing/UnrealBloomPass.js"></script>
+    <script src="libs/examples/js/postprocessing/EffectComposer.js"></script>
+    <script src="person_targets.js"></script>
+    <script src="libs/mediapipe/hands.js"></script>
+</head>
+<body>
+<div id="info">
+    <h1>✦ 星语粒子 · 摄像头手势版 ✦</h1>
+    <div class="tip">
+        🖱️ <b>拖动</b>: 旋转视角 &nbsp;|&nbsp; 🖲️ <b>滚轮</b>: 星球 ⇄ 人物形态（下滚→人物，上滚→星球）<br>
+        ✋ <b>张开手掌</b>: 变成人物轮廓 &nbsp;|&nbsp; ✊ <b>握拳</b>: 变回粒子星球 &nbsp;|&nbsp; 🫲 <b>旋转手掌</b>: 旋转视角
+    </div>
+    <div id="status">形态: 粒子星球 100% | 等待交互...</div>
+</div>
+<video id="input-video" autoplay muted playsinline></video>
+<canvas id="webcam-preview" width="160" height="120"></canvas>
+<button id="camBtn">启动摄像头</button>
+<div id="brightness-ui">
+    <label>粒子亮度</label>
+    <input type="range" id="brightnessSlider" min="30" max="250" value="100" step="1">
+    <div id="brightnessVal">1.00×</div>
+</div>
+<div id="container"></div>
+<script>
+const T = THREE;
+const { EffectComposer, RenderPass, UnrealBloomPass } = THREE;
+
+// ==========================================
+// 1. 配置
+// ==========================================
+const CONFIG = {
+    palette: [0x00ff88, 0x00ff88, 0x33ffcc, 0x00ccff, 0x9966ff, 0xcc33ff], // 绿/绿/青绿/蓝/淡紫/紫
+    particleCount: 800000,  // 可变形态粒子数 (星球 ⇄ 人物)
+    starCount: 1800,        // 背景星云
+    minDistance: 160,
+    maxDistance: 900,
+    defaultDistance: 300
+};
+const N = CONFIG.particleCount;
+const N3 = N * 3;
+
+let scene, camera, renderer, composer;
+let cloud, starField;
+let morph = 0, morphTarget = 0;   // 0=粒子星球 1=人物轮廓
+let planetSpin = 0;
+let dragging = false, lastX = 0, lastY = 0;
+
+const camTarget = { phi: 0, theta: Math.PI / 2, radius: CONFIG.defaultDistance };
+const camCur = { phi: 0, theta: Math.PI / 2, radius: CONFIG.defaultDistance };
+
+const container = document.getElementById('container');
+const statusEl = document.getElementById('status');
+const camBtn = document.getElementById('camBtn');
+const video = document.getElementById('input-video');
+const previewCanvas = document.getElementById('webcam-preview');
+const previewCtx = previewCanvas.getContext('2d');
+
+// URL 参数 ?morph=1 直接预览人物形态；?norot=1 关闭空闲自转（便于调试）
+const query = new URLSearchParams(location.search);
+if (query.get('morph') === '1') { morph = 1; morphTarget = 1; }
+const norot = query.get('norot') === '1';
+
+// ==========================================
+// 2. 粒子双形态数据
+// ==========================================
+const nebulaPos = new Float32Array(N3);  // 星球形态坐标
+const personPos = new Float32Array(N3);  // 人物轮廓坐标
+const nebulaColors = new Float32Array(N3); // 星球形态颜色 (绿蓝紫)
+const personColors = new Float32Array(N3); // 人物形态颜色 (原图真实颜色)
+const colors = new Float32Array(N3);
+
+// 绕 X 轴再绕 Z 轴的倾斜变换 (星环姿态)
+function tilt(x, y, z, tx, tz) {
+    const y1 = y * Math.cos(tx) - z * Math.sin(tx);
+    const z1 = y * Math.sin(tx) + z * Math.cos(tx);
+    const x2 = x * Math.cos(tz) - y1 * Math.sin(tz);
+    const y2 = x * Math.sin(tz) + y1 * Math.cos(tz);
+    return [x2, y2, z1];
+}
+
+// 星球形态：60% 球体 + 40% 两个立体环 (同 xingqiu 布局)
+function buildNebula() {
+    const planetEnd = Math.floor(N * 0.6);
+    const ring1End = Math.floor(N * 0.8);
+    for (let i = 0; i < N; i++) {
+        let x, y, z;
+        if (i < planetEnd) {
+            const u = Math.random(), v = Math.random();
+            const th = 2 * Math.PI * u;
+            const ph = Math.acos(2 * v - 1);
+            let r = 50;
+            if (Math.random() > 0.8) r = 50 * Math.random(); // 20% 内部填充
+            x = r * Math.sin(ph) * Math.cos(th);
+            y = r * Math.sin(ph) * Math.sin(th);
+            z = r * Math.cos(ph);
+        } else if (i < ring1End) {
+            const a0 = Math.random() * 2 * Math.PI;
+            const R = 70 + Math.random() * 40;
+            const a1 = Math.random() * 2 * Math.PI;
+            const rr = 8 * Math.sqrt(Math.random());
+            const t = tilt(R * Math.cos(a0) + rr * Math.cos(a1), rr * Math.sin(a1), R * Math.sin(a0), Math.PI / 3, Math.PI / 6);
+            x = t[0]; y = t[1]; z = t[2];
+        } else {
+            const a0 = Math.random() * 2 * Math.PI;
+            const R = 80 + Math.random() * 60;
+            const a1 = Math.random() * 2 * Math.PI;
+            const rr = 12 * Math.sqrt(Math.random());
+            const t = tilt(R * Math.cos(a0) + rr * Math.cos(a1), rr * Math.sin(a1), R * Math.sin(a0), -Math.PI / 4, -Math.PI / 8);
+            x = t[0]; y = t[1]; z = t[2];
+        }
+        nebulaPos[i * 3] = x;
+        nebulaPos[i * 3 + 1] = y;
+        nebulaPos[i * 3 + 2] = z;
+    }
+}
+
+// 人物形态：从截图提取的轮廓坐标 + 每颗粒子的原图真实颜色 (person_targets.js)
+function buildPerson() {
+    const t = window.PERSON_TARGETS;
+    if (t && t.length >= N * 6) {
+        for (let i = 0; i < N; i++) {
+            personPos[i * 3] = t[i * 6];
+            personPos[i * 3 + 1] = t[i * 6 + 1];
+            personPos[i * 3 + 2] = t[i * 6 + 2];
+            personColors[i * 3] = t[i * 6 + 3];
+            personColors[i * 3 + 1] = t[i * 6 + 4];
+            personColors[i * 3 + 2] = t[i * 6 + 5];
+        }
+    } else {
+        personPos.set(nebulaPos);
+        personColors.set(nebulaColors);
+        console.warn('PERSON_TARGETS 缺失，人物形态不可用');
+    }
+}
+
+// ==========================================
+// 3. 场景构建
+// ==========================================
+// 锐利纹理：核心更实、光晕更小，减少暗部渗光，细节更清晰
+function makeSharpTexture() {
+    const c = document.createElement('canvas');
+    c.width = 32; c.height = 32;
+    const g = c.getContext('2d');
+    const gr = g.createRadialGradient(16, 16, 0, 16, 16, 16);
+    gr.addColorStop(0, 'rgba(255,255,255,1)');
+    gr.addColorStop(0.45, 'rgba(255,255,255,0.9)');
+    gr.addColorStop(0.7, 'rgba(255,255,255,0.35)');
+    gr.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = gr;
+    g.fillRect(0, 0, 32, 32);
+    return new T.CanvasTexture(c);
+}
+
+function makeGlowTexture() {
+    const c = document.createElement('canvas');
+    c.width = 32; c.height = 32;
+    const g = c.getContext('2d');
+    const gr = g.createRadialGradient(16, 16, 0, 16, 16, 16);
+    gr.addColorStop(0, 'rgba(255,255,255,1)');
+    gr.addColorStop(0.2, 'rgba(255,255,255,0.8)');
+    gr.addColorStop(0.5, 'rgba(255,255,255,0.2)');
+    gr.addColorStop(1, 'rgba(0,0,0,0)');
+    g.fillStyle = gr;
+    g.fillRect(0, 0, 32, 32);
+    return new T.CanvasTexture(c);
+}
+
+function buildCloud() {
+    buildNebula();
+    buildPerson();
+    for (let i = 0; i < N; i++) {
+        const c = new T.Color(CONFIG.palette[(Math.random() * CONFIG.palette.length) | 0]);
+        colors[i * 3] = c.r;
+        colors[i * 3 + 1] = c.g;
+        colors[i * 3 + 2] = c.b;
+    }
+    nebulaColors.set(colors);
+    const geo = new T.BufferGeometry();
+    geo.setAttribute('position', new T.Float32BufferAttribute(nebulaPos.slice(), 3));
+    geo.setAttribute('color', new T.Float32BufferAttribute(colors, 3));
+    const mat = new T.PointsMaterial({
+        size: 2.2, map: makeSharpTexture(), vertexColors: true, transparent: true, opacity: 0.9,
+        blending: T.AdditiveBlending, depthWrite: false
+    });
+    return new T.Points(geo, mat);
+}
+
+function buildStarField() {
+    const pos = [], cols = [];
+    for (let i = 0; i < CONFIG.starCount; i++) {
+        const u = Math.random(), v = Math.random();
+        const th = 2 * Math.PI * u;
+        const ph = Math.acos(2 * v - 1);
+        const r = 900 + Math.random() * 1500;
+        pos.push(r * Math.sin(ph) * Math.cos(th), r * Math.sin(ph) * Math.sin(th), r * Math.cos(ph));
+        const c = new T.Color(CONFIG.palette[(Math.random() * CONFIG.palette.length) | 0]);
+        cols.push(c.r, c.g, c.b);
+    }
+    const geo = new T.BufferGeometry();
+    geo.setAttribute('position', new T.Float32BufferAttribute(pos, 3));
+    geo.setAttribute('color', new T.Float32BufferAttribute(cols, 3));
+    const mat = new T.PointsMaterial({
+        size: 2.5, map: makeGlowTexture(), vertexColors: true, transparent: true, opacity: 0.5,
+        blending: T.AdditiveBlending, depthWrite: false
+    });
+    return new T.Points(geo, mat);
+}
+
+// ==========================================
+// 4. 鼠标控制
+// ==========================================
+function initControls() {
+    const el = renderer.domElement;
+
+    el.addEventListener('pointerdown', function (e) {
+        dragging = true;
+        lastX = e.clientX; lastY = e.clientY;
+        container.classList.add('dragging');
+        el.setPointerCapture(e.pointerId);
+    });
+
+    el.addEventListener('pointermove', function (e) {
+        if (!dragging) return;
+        const dx = e.clientX - lastX;
+        const dy = e.clientY - lastY;
+        lastX = e.clientX; lastY = e.clientY;
+        camTarget.phi -= dx * 0.005;
+        camTarget.theta = Math.max(0.2, Math.min(Math.PI - 0.2, camTarget.theta - dy * 0.005));
+    });
+
+    function endDrag() {
+        dragging = false;
+        container.classList.remove('dragging');
+    }
+    el.addEventListener('pointerup', endDrag);
+    el.addEventListener('pointercancel', endDrag);
+
+    // 滚轮驱动形态变化：下滚 → 人物，上滚 → 星球
+    el.addEventListener('wheel', function (e) {
+        e.preventDefault();
+        morphTarget = Math.max(0, Math.min(1, morphTarget + e.deltaY * 0.001));
+        cloudDirty = true;
+    }, { passive: false });
+}
+
+// ==========================================
+// 5. 动画循环
+// ==========================================
+let cloudDirty = true; // 形态收敛后跳过逐帧更新 (80万粒子零开销)
+let cloudFirst = true; // 首帧必须更新一次 (例如 ?morph=1 直接进入人物形态)
+
+function updateCloud() {
+    const prevMorph = morph;
+    morph += (morphTarget - morph) * 0.05;
+
+    if (cloudDirty && (cloudFirst || Math.abs(morph - prevMorph) > 1e-6)) {
+        cloudFirst = false;
+        const pos = cloud.geometry.attributes.position.array;
+        const col = cloud.geometry.attributes.color.array;
+        for (let i = 0; i < N3; i++) {
+            pos[i] = nebulaPos[i] + (personPos[i] - nebulaPos[i]) * morph;
+            // 颜色同步渐变：绿蓝紫 ⇄ 原图真实颜色
+            col[i] = nebulaColors[i] + (personColors[i] - nebulaColors[i]) * morph;
+        }
+        cloud.geometry.attributes.position.needsUpdate = true;
+        cloud.geometry.attributes.color.needsUpdate = true;
+
+        // 人物形态粒子更细小密集，配合颜色补偿还原原画细节
+        cloud.material.size = 2.2 - 0.9 * morph;
+
+        // 人物形态时背景星云淡出，突出原图色彩还原
+        if (starField) starField.material.opacity = 0.5 - 0.4 * morph;
+    } else {
+        cloudDirty = false; // 已收敛，停止逐帧更新
+    }
+
+    // 星球形态缓慢自转；人物形态始终面向相机
+    planetSpin += 0.0008;
+    cloud.rotation.y = planetSpin * (1 - morph) + (-camCur.phi) * morph;
+}
+
+function updateCamera() {
+    camCur.phi += (camTarget.phi - camCur.phi) * 0.12;
+    camCur.theta += (camTarget.theta - camCur.theta) * 0.12;
+    camCur.radius += (camTarget.radius - camCur.radius) * 0.1;
+
+    // 空闲且无手势时缓慢自转
+    if (!dragging && !handSeen && !norot) camTarget.phi -= 0.0015;
+
+    const r = camCur.radius, t = camCur.theta, p = camCur.phi;
+    camera.position.set(r * Math.sin(t) * Math.sin(p), r * Math.cos(t), r * Math.sin(t) * Math.cos(p));
+    camera.lookAt(0, 0, 0);
+}
+
+function animate() {
+    requestAnimationFrame(animate);
+    updateCloud();
+    updateCamera();
+    if (starField) starField.rotation.y += 0.0004;
+    composer.render();
+}
+
+// ==========================================
+// 6. MediaPipe 手势识别
+// ==========================================
+let hands = null;
+let handSeen = false;
+let camActive = false;
+
+const HAND_CONNECTIONS = [
+    [0,1],[1,2],[2,3],[3,4],[0,5],[5,6],[6,7],[7,8],[5,9],[9,10],[10,11],[11,12],
+    [9,13],[13,14],[14,15],[15,16],[13,17],[17,18],[18,19],[19,20],[0,17]
+];
+
+function drawHand(lm) {
+    previewCtx.strokeStyle = '#00ffcc';
+    previewCtx.lineWidth = 1;
+    for (const c of HAND_CONNECTIONS) {
+        const a = lm[c[0]], b = lm[c[1]];
+        previewCtx.beginPath();
+        previewCtx.moveTo(a.x * previewCanvas.width, a.y * previewCanvas.height);
+        previewCtx.lineTo(b.x * previewCanvas.width, b.y * previewCanvas.height);
+        previewCtx.stroke();
+    }
+    previewCtx.fillStyle = '#ffffff';
+    for (const p of lm) {
+        previewCtx.beginPath();
+        previewCtx.arc(p.x * previewCanvas.width, p.y * previewCanvas.height, 1.5, 0, Math.PI * 2);
+        previewCtx.fill();
+    }
+}
+
+function onResults(results) {
+    previewCtx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+    if (results.image) {
+        previewCtx.drawImage(results.image, 0, 0, previewCanvas.width, previewCanvas.height);
+    }
+    if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
+        handSeen = true;
+        const lm = results.multiHandLandmarks[0];
+        drawHand(lm);
+
+        // 1) 手掌倾斜 → 旋转视角
+        const wrist = lm[0], midBase = lm[9];
+        const dx = midBase.x - wrist.x;
+        camTarget.phi += dx * -0.4;
+
+        // 2) 握拳 vs 张开 → 形态切换
+        const tips = [8, 12, 16, 20], mcps = [5, 9, 13, 17];
+        let folded = 0;
+        for (let i = 0; i < 4; i++) {
+            const dTip = (lm[tips[i]].x - wrist.x) ** 2 + (lm[tips[i]].y - wrist.y) ** 2;
+            const dMcp = (lm[mcps[i]].x - wrist.x) ** 2 + (lm[mcps[i]].y - wrist.y) ** 2;
+            if (dTip < dMcp * 1.2) folded++;
+        }
+        if (folded === 0) {
+            morphTarget = 1;
+            cloudDirty = true;
+            setCamStatus('✋ 张开手掌 → 人物轮廓');
+        } else if (folded >= 3) {
+            morphTarget = 0;
+            cloudDirty = true;
+            setCamStatus('✊ 握拳 → 粒子星球');
+        } else {
+            setCamStatus('🤞 手势: 保持当前形态');
+        }
+    } else {
+        handSeen = false;
+    }
+}
+
+function setCamStatus(msg) {
+    document.getElementById('status').style.color = '#00ffcc';
+    statusEl.innerHTML = '形态: 星球 ' + Math.round((1 - morph) * 100) + '% | 人物 ' + Math.round(morph * 100) + '%<br>' + msg;
+}
+
+function cameraLoop() {
+    if (!camActive) return;
+    requestAnimationFrame(cameraLoop);
+    if (hands && video.readyState >= 2 && video.videoWidth > 0) {
+        hands.send({ image: video }); // 异步识别，结果经 onResults 回调
+    }
+}
+
+async function startCamera() {
+    camBtn.disabled = true;
+    camBtn.textContent = '摄像头启动中...';
+    try {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error('no-media');
+        if (!hands) initHands();
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480, facingMode: 'user' } });
+        video.srcObject = stream;
+        await video.play();
+        camActive = true;
+        camBtn.textContent = '关闭摄像头';
+        setCamStatus('🖐️ 将手放入画面');
+        cameraLoop();
+    } catch (e) {
+        let msg;
+        if (e && e.name === 'NotAllowedError') msg = '摄像头权限被拒绝';
+        else if (e && e.name === 'NotFoundError') msg = '未检测到摄像头';
+        else if (!location.protocol.startsWith('http')) msg = '摄像头需通过 启动服务器.bat 打开';
+        else msg = '摄像头启动失败: ' + (e && e.message ? e.message : e);
+        camBtn.disabled = false;
+        camBtn.textContent = '重试摄像头';
+        setCamStatus('⚠️ ' + msg);
+    }
+}
+
+function initHands() {
+    if (!window.Hands) {
+        setCamStatus('⚠️ 手势库未加载');
+        return;
+    }
+    hands = new Hands({
+        locateFile: function (f) { return 'libs/mediapipe/' + f; }
+    });
+    hands.setOptions({
+        maxNumHands: 1,
+        modelComplexity: 1,
+        minDetectionConfidence: 0.5,
+        minTrackingConfidence: 0.5
+    });
+    hands.onResults(onResults);
+}
+
+// 关闭摄像头：停止视频轨道，释放设备
+function stopCamera() {
+    camActive = false;
+    handSeen = false;
+    if (video.srcObject) {
+        video.srcObject.getTracks().forEach(function (t) { t.stop(); });
+        video.srcObject = null;
+    }
+    camBtn.disabled = false;
+    camBtn.textContent = '启动摄像头';
+    setCamStatus('📷 摄像头已关闭');
+}
+
+camBtn.addEventListener('click', function () {
+    if (camActive) { stopCamera(); } else { startCamera(); }
+});
+
+// 粒子亮度竖状拉条：material.color 与顶点色相乘，GPU 端零开销
+const brightnessSlider = document.getElementById('brightnessSlider');
+const brightnessVal = document.getElementById('brightnessVal');
+brightnessSlider.addEventListener('input', function () {
+    const v = brightnessSlider.value / 100;
+    brightnessVal.textContent = v.toFixed(2) + '×';
+    if (cloud) cloud.material.color.setScalar(v);
+});
+
+// ==========================================
+// 7. 启动
+// ==========================================
+function init() {
+    scene = new T.Scene();
+    scene.fog = new T.FogExp2(0x000000, 0.0005);
+
+    camera = new T.PerspectiveCamera(60, innerWidth / innerHeight, 1, 4000);
+    camera.position.set(0, 0, CONFIG.defaultDistance);
+
+    renderer = new T.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
+    renderer.setSize(innerWidth, innerHeight);
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    container.appendChild(renderer.domElement);
+
+    composer = new EffectComposer(renderer);
+    composer.addPass(new RenderPass(scene, camera));
+    const bloom = new UnrealBloomPass(new T.Vector2(innerWidth, innerHeight), 0.7, 0.04, 0.35);
+    composer.addPass(bloom);
+
+    starField = buildStarField();
+    cloud = buildCloud();
+    scene.add(starField, cloud);
+
+    initControls();
+
+    addEventListener('resize', function () {
+        camera.aspect = innerWidth / innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(innerWidth, innerHeight);
+        composer.setSize(innerWidth, innerHeight);
+    });
+}
+
+init();
+animate();
+// 延迟自动尝试摄像头
+setTimeout(startCamera, 800);
+</script>
+</body>
+</html>

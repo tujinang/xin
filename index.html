@@ -636,12 +636,13 @@ footer .quote{color:var(--cyan);font-weight:500;letter-spacing:.03em}
       <h3>「星语粒子」动态特效系统</h3>
       <p style="margin-bottom:6px;font-size:.78rem;color:var(--text-tertiary)">独立开发者</p>
       <ul>
-        <li>设计并开发一套基于 HTML5 Canvas 与 JavaScript 的动态粒子特效系统，包含星空漫游场景</li>
-        <li>借助 AI 编程助手将自然语言描述的特效需求转化为可运行的粒子运动算法，实现粒子属性（速度、生命周期、颜色渐变）的灵活配置，代码复用率超过 <span class="highlight">70%</span></li>
-        <li>优化粒子系统性能，通过对象池模式减少垃圾回收开销，在 <span class="highlight">10000+</span> 粒子数量下仍保持 30fps 流畅运行，内存峰值控制在 200MB 以内</li>
-        <li>将特效系统封装为可嵌入网页的轻量级组件，提供 API 接口文档，被 2 个校园活动页面采用作为背景视觉，累计曝光量约 <span class="highlight">4000+</span> 次</li>
+        <li>设计并开发基于 Three.js WebGL 的动态粒子特效系统「星语粒子」，核心场景由 <span class="highlight">80 万</span> 个发光粒子实时渲染，支持鼠标拖拽 360° 视角与滚轮形态切换</li>
+        <li>自研「原画还原」粒子管线：对目标图像进行亮度阈值轮廓提取与逐像素颜色采样（前景约 <span class="highlight">105 万</span> 像素），基于重叠补偿颜色模型，使粒子聚合后还原原画的光影、色彩与表情细节</li>
+        <li>实现双形态实时变形：绿蓝紫粒子星球与人物轮廓之间平滑过渡，由 <span class="highlight">MediaPipe</span> 手势识别（张开手掌 / 握拳 / 旋转手掌）或鼠标滚轮驱动</li>
+        <li>集成 Bloom 后期发光、自绘锐利渐变粒子纹理、亮度调节拉条等视觉细节，并解决浏览器摄像头权限与 WASM 模型加载等工程问题</li>
       </ul>
       <div class="project-actions">
+        <a class="project-launch" href="starlight-particles/camera.html" target="_blank" rel="noopener">📷 摄像头版</a>
         <a class="project-launch" href="starlight-particles/index.html" target="_blank" rel="noopener">✋ 手势版</a>
         <a class="project-launch" href="starlight-particles/mouse.html" target="_blank" rel="noopener">🖱 鼠标版</a>
       </div>
