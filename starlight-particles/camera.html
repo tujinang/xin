@@ -40,7 +40,7 @@
     <h1>✦ 星语粒子 · 摄像头手势版 ✦</h1>
     <div class="tip">
         🖱️ <b>拖动</b>: 旋转视角 &nbsp;|&nbsp; 🖲️ <b>滚轮</b>: 星球 ⇄ 人物形态（下滚→人物，上滚→星球）<br>
-        ✋ <b>张开手掌</b>: 变成人物轮廓 &nbsp;|&nbsp; ✊ <b>握拳</b>: 变回粒子星球 &nbsp;|&nbsp; 🫲 <b>旋转手掌</b>: 旋转视角
+        ✊ <b>握拳</b>: 变成人物轮廓（握紧或握松均可） &nbsp;|&nbsp; ✋ <b>张开手掌</b>: 变回粒子星球 &nbsp;|&nbsp; 🫲 <b>旋转手掌</b>: 旋转视角
     </div>
     <div id="status">形态: 粒子星球 100% | 等待交互...</div>
 </div>
@@ -293,8 +293,8 @@ let cloudFirst = true; // 首帧必须更新一次 (例如 ?morph=1 直接进入
 
 function updateCloud() {
     const prevMorph = morph;
-    // 握拳回缩更快 (0.12)，张开稍缓 (0.07)，接近目标时直接收敛
-    const rate = morphTarget < morph ? 0.12 : 0.07;
+    // 回缩方向更快 (0.12)，展开方向也保持敏捷 (0.10)，接近目标时直接收敛
+    const rate = morphTarget < morph ? 0.12 : 0.10;
     morph += (morphTarget - morph) * rate;
     if (Math.abs(morphTarget - morph) < 0.01) morph = morphTarget;
 
@@ -387,26 +387,30 @@ function onResults(results) {
         const dx = midBase.x - wrist.x;
         camTarget.phi += dx * -0.4;
 
-        // 2) 握拳 vs 张开 → 形态切换
-        // 折指判定：指尖到 PIP 关节的距离 vs 指尖到手腕的距离
-        // （对真实手部姿态更鲁棒，不易受透视缩短影响）
-        const tips = [8, 12, 16, 20], pips = [6, 10, 14, 18];
-        let folded = 0;
+        // 2) 手部紧凑度判定：拳头（无论握紧握松）→ 人物图片；张手 → 粒子星球
+        // 紧凑度 = 指尖到掌心(中指MCP)的平均距离 ÷ 手腕到掌心的距离
+        // 紧拳 ≈0.3-0.6 / 松拳 ≈0.6-1.1 / 张手 >1.5
+        const palmC = lm[9];
+        let tipSum = 0;
         for (let i = 0; i < 4; i++) {
-            const dPip = (lm[tips[i]].x - lm[pips[i]].x) ** 2 + (lm[tips[i]].y - lm[pips[i]].y) ** 2;
-            const dWrist = (lm[tips[i]].x - wrist.x) ** 2 + (lm[tips[i]].y - wrist.y) ** 2;
-            if (dPip < dWrist * 0.4) folded++;
+            const t = [8, 12, 16, 20][i];
+            tipSum += Math.hypot(lm[t].x - palmC.x, lm[t].y - palmC.y);
         }
-        if (folded === 0) {
+        const tipAvg = tipSum / 4;
+        const palmRef = Math.hypot(wrist.x - palmC.x, wrist.y - palmC.y);
+        const compact = tipAvg / Math.max(palmRef, 0.01);
+        if (compact < 1.15) {
+            // 握拳（紧或松）→ 人物图片
             morphTarget = 1;
             cloudDirty = true;
-            setCamStatus('✋ 张开手掌 → 人物轮廓');
-        } else if (folded >= 2) {
+            setCamStatus('✊ 握拳 → 人物图片');
+        } else if (compact > 1.45) {
+            // 张开手掌 → 粒子星球
             morphTarget = 0;
             cloudDirty = true;
-            setCamStatus('✊ 握拳 → 粒子星球');
+            setCamStatus('✋ 张开手掌 → 粒子星球');
         } else {
-            setCamStatus('🤞 手势: 保持当前形态 (折指 ' + folded + ')');
+            setCamStatus('🤞 手势: 保持当前形态');
         }
     } else {
         handSeen = false;
