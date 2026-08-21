@@ -1,0 +1,57 @@
+﻿<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>星云粒子球</title>
+    <style>
+        body{margin:0;padding:0;overflow:hidden;background:#000;font-family:"Segoe UI",sans-serif}
+        #container{position:absolute;top:0;left:0;width:100%;height:100%;z-index:1}
+        #info{position:absolute;top:24px;left:24px;z-index:10;color:rgba(255,255,255,0.85);pointer-events:none;user-select:none}
+        #info h1{margin:0;font-size:1.4rem;letter-spacing:3px;background:linear-gradient(135deg,#ff88cc,#8844ff,#44ccff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+        #info p{margin:8px 0 0;font-size:0.8rem;color:rgba(255,255,255,0.5);line-height:1.6}
+        #info kbd{display:inline-block;padding:1px 6px;border-radius:3px;background:rgba(255,255,255,0.1);border:1px solid rgba(255,255,255,0.2);font-family:monospace;font-size:0.75rem}
+        #stats{position:absolute;bottom:20px;left:24px;z-index:10;color:rgba(255,255,255,0.2);font-size:0.7rem;font-family:monospace;pointer-events:none;letter-spacing:0.5px}
+        #loading{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:#fff;font-size:20px;z-index:20;text-align:center;opacity:0.5;transition:opacity 1s}
+    </style>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+</head>
+<body>
+<div id="loading">生成星云粒子 ...</div>
+<div id="info">
+    <h1>✦ 星云核心 ✦</h1>
+    <p><kbd>拖拽</kbd> 旋转 &nbsp; <kbd>滚轮</kbd> 缩放 &nbsp; <kbd>右键</kbd> 平移 &nbsp; <kbd>R</kbd> 重置视角</p>
+</div>
+<div id="stats">40 000 星云粒子 // 6 000 吸积盘粒子</div>
+<div id="container"></div>
+<script type="module">
+import*as T from'three';import{EffectComposer}from'three/addons/postprocessing/EffectComposer.js';import{RenderPass}from'three/addons/postprocessing/RenderPass.js';import{UnrealBloomPass}from'three/addons/postprocessing/UnrealBloomPass.js';import{OrbitControls}from'three/addons/controls/OrbitControls.js';
+const N=40000,R=140,CL=6;
+let S,C,RD,CP,ctrl,pts,spd,phs,bPos,bSz,tm=0;
+let bh,lens,disk,dAng,dRad,dSpd,dOff;
+function tex2(){const c=document.createElement('canvas');c.width=32;c.height=32;const g=c.getContext('2d');const gr=g.createRadialGradient(16,16,0,16,16,16);gr.addColorStop(0,'rgba(255,255,255,1)');gr.addColorStop(0.2,'rgba(255,255,255,0.8)');gr.addColorStop(0.5,'rgba(255,255,255,0.15)');gr.addColorStop(1,'rgba(0,0,0,0)');g.fillStyle=gr;g.fillRect(0,0,32,32);return new T.CanvasTexture(c);}
+function glowTex(){const c=document.createElement('canvas');c.width=16;c.height=16;const g=c.getContext('2d');const gr=g.createRadialGradient(8,8,0,8,8,8);gr.addColorStop(0,'rgba(255,255,255,1)');gr.addColorStop(0.1,'rgba(255,255,200,0.8)');gr.addColorStop(0.4,'rgba(255,200,100,0.2)');gr.addColorStop(1,'rgba(0,0,0,0)');g.fillStyle=gr;g.fillRect(0,0,16,16);return new T.CanvasTexture(c);}
+function gen(){
+const p=new Float32Array(N*3),cl=new Float32Array(N*3),sz=new Float32Array(N);spd=new Float32Array(N);phs=new Float32Array(N);bPos=new Float32Array(N*3);bSz=new Float32Array(N);
+const pal=[new T.Color(0xff4488),new T.Color(0xff8844),new T.Color(0xcc44ff),new T.Color(0x4488ff),new T.Color(0x44ffcc),new T.Color(0x88ddff)];
+const cc=[];for(let i=0;i<CL;i++){const th=Math.random()*Math.PI*2,ph=Math.acos(2*Math.random()-1),rr=R*0.5*Math.random();cc.push({x:rr*Math.sin(ph)*Math.cos(th),y:rr*Math.cos(ph),z:rr*Math.sin(ph)*Math.sin(th)});}
+for(let i=0;i<N;i++){let x,y,z;const rn=Math.random();if(rn<0.55){const r=R*(0.3+Math.random()*0.7),th=Math.random()*Math.PI*2,ph=Math.acos(2*Math.random()-1);x=r*Math.sin(ph)*Math.cos(th);y=r*Math.cos(ph);z=r*Math.sin(ph)*Math.sin(th);}else if(rn<0.8){const ci=Math.floor(Math.random()*CL),cc2=cc[ci];const r=R*0.18*Math.random(),th=Math.random()*Math.PI*2,ph=Math.acos(2*Math.random()-1);x=cc2.x+r*Math.sin(ph)*Math.cos(th);y=cc2.y+r*Math.cos(ph);z=cc2.z+r*Math.sin(ph)*Math.sin(th);}else{const tL=R*(0.1+Math.random()*0.8),sp=0.12*tL;x=tL*(Math.random()-0.5)+sp*(Math.random()-0.5);y=tL*(Math.random()-0.5)+sp*(Math.random()-0.5);z=tL*(Math.random()-0.5)+sp*(Math.random()-0.5);}
+p[i*3]=x;p[i*3+1]=y;p[i*3+2]=z;bPos[i*3]=x;bPos[i*3+1]=y;bPos[i*3+2]=z;
+const dist=Math.sqrt(x*x+y*y+z*z),t=dist/R;const col=new T.Color();if(t<0.2)col.lerpColors(pal[0],pal[1],t*5);else if(t<0.4)col.lerpColors(pal[1],pal[2],(t-0.2)*5);else if(t<0.6)col.lerpColors(pal[2],pal[3],(t-0.4)*5);else if(t<0.8)col.lerpColors(pal[3],pal[4],(t-0.6)*5);else col.lerpColors(pal[4],pal[5],(t-0.8)*5);cl[i*3]=Math.min(col.r,1);cl[i*3+1]=Math.min(col.g,1);cl[i*3+2]=Math.min(col.b,1);
+const baseSz=0.4+Math.random()*2.8+1.8*(1-t);bSz[i]=baseSz;sz[i]=baseSz;spd[i]=0.002+Math.random()*0.008;phs[i]=Math.random()*Math.PI*2;}
+const geo=new T.BufferGeometry();geo.setAttribute('position',new T.BufferAttribute(p,3));geo.setAttribute('color',new T.BufferAttribute(cl,3));geo.setAttribute('size',new T.BufferAttribute(sz,1));const t2=tex2();pts=new T.Points(geo,new T.PointsMaterial({size:2.5,map:t2,transparent:true,opacity:0.92,blending:T.AdditiveBlending,depthWrite:false,vertexColors:true,sizeAttenuation:true}));S.add(pts);}
+function createBH(){const bg=new T.SphereGeometry(14,32,32);bh=new T.Mesh(bg,new T.MeshBasicMaterial({color:0x000000}));S.add(bh);const lg=new T.SphereGeometry(22,32,32);lens=new T.Mesh(lg,new T.MeshPhysicalMaterial({color:0x112244,transparent:true,opacity:0.25,roughness:0.1,metalness:0,transmission:0.6,thickness:0.5,envMapIntensity:0.2,emissive:0x4488ff,emissiveIntensity:0.3}));S.add(lens);const rg=new T.RingGeometry(18,28,64);const rm=new T.MeshBasicMaterial({color:0x4488ff,transparent:true,opacity:0.15,side:T.DoubleSide,blending:T.AdditiveBlending,depthWrite:false});const r=new T.Mesh(rg,rm);r.rotation.x=-Math.PI/2;S.add(r);}
+function createDisk(){const n=6000;const p=new Float32Array(n*3),c=new Float32Array(n*3),s=new Float32Array(n);dAng=new Float32Array(n);dRad=new Float32Array(n);dSpd=new Float32Array(n);dOff=new Float32Array(n);const inner=20,outer=80;for(let i=0;i<n;i++){const r=inner+Math.random()*(outer-inner);const a=Math.random()*Math.PI*2;const th=(Math.random()-0.5)*2*(r/outer);p[i*3]=r*Math.cos(a);p[i*3+1]=th;p[i*3+2]=r*Math.sin(a);const t=(r-inner)/(outer-inner);const col=new T.Color();if(t<0.2)col.setHSL(0.58,0.9,0.9+t*0.3);else if(t<0.5)col.setHSL(0.55-t*0.3,0.9,0.7);else col.setHSL(0.08-t*0.08,0.9,0.5-t*0.2);c[i*3]=col.r;c[i*3+1]=col.g;c[i*3+2]=col.b;s[i]=0.8+Math.random()*2.5;dAng[i]=a;dRad[i]=r;dSpd[i]=0.03*Math.pow(r/inner,-1.5);dOff[i]=th;}const geo=new T.BufferGeometry();geo.setAttribute('position',new T.BufferAttribute(p,3));geo.setAttribute('color',new T.BufferAttribute(c,3));geo.setAttribute('size',new T.BufferAttribute(s,1));const t2=tex2();disk=new T.Points(geo,new T.PointsMaterial({size:2,map:t2,transparent:true,opacity:0.9,blending:T.AdditiveBlending,depthWrite:false,vertexColors:true,sizeAttenuation:true}));S.add(disk);}
+function init(){const el=document.getElementById('container');S=new T.Scene();S.fog=new T.FogExp2(0x000011,0.0008);C=new T.PerspectiveCamera(60,window.innerWidth/window.innerHeight,1,2000);C.position.set(160,60,180);RD=new T.WebGLRenderer({antialias:true,powerPreference:'high-performance'});RD.setSize(window.innerWidth,window.innerHeight);RD.setPixelRatio(Math.min(window.devicePixelRatio,2));RD.toneMapping=T.ACESFilmicToneMapping;RD.toneMappingExposure=1.0;el.appendChild(RD.domElement);ctrl=new OrbitControls(C,RD.domElement);ctrl.enableDamping=true;ctrl.dampingFactor=0.08;ctrl.minDistance=30;ctrl.maxDistance=500;ctrl.autoRotate=true;ctrl.autoRotateSpeed=0.6;ctrl.target.set(0,0,0);ctrl.update();const rp=new RenderPass(S,C);const bp=new UnrealBloomPass(new T.Vector2(window.innerWidth,window.innerHeight),0.8,0.2,0.85);bp.threshold=0.05;bp.strength=1.6;bp.radius=0.2;CP=new EffectComposer(RD);CP.addPass(rp);CP.addPass(bp);gen();createBH();createDisk();window.addEventListener('resize',()=>{C.aspect=window.innerWidth/window.innerHeight;C.updateProjectionMatrix();RD.setSize(window.innerWidth,window.innerHeight);CP.setSize(window.innerWidth,window.innerHeight);});window.addEventListener('keydown',e=>{if(e.key==='r'||e.key==='R'){C.position.set(160,60,180);ctrl.target.set(0,0,0);ctrl.update()}});document.getElementById('loading').style.opacity='0';setTimeout(()=>{document.getElementById('loading').style.display='none'},1000);}
+function anim(){requestAnimationFrame(anim);tm+=0.005;const pos=pts.geometry.attributes.position.array;const sz=pts.geometry.attributes.size.array;for(let i=0;i<N;i++){const dr=Math.sin(tm*spd[i]+phs[i])*0.4;const dr2=Math.cos(tm*spd[i]*0.7+phs[i]*1.3)*0.25;pos[i*3]=bPos[i*3]+bPos[i*3]/R*dr;pos[i*3+1]=bPos[i*3+1]+bPos[i*3+1]/R*dr2;pos[i*3+2]=bPos[i*3+2]+bPos[i*3+2]/R*dr;const pulse=0.8+0.2*Math.sin(tm*2*spd[i]*3+phs[i]);sz[i]=bSz[i]*pulse;}pts.geometry.attributes.position.needsUpdate=true;pts.geometry.attributes.size.needsUpdate=true;pts.rotation.y+=0.001;if(lens)lens.material.emissiveIntensity=0.2+Math.sin(tm*2)*0.1;if(disk){const dp=disk.geometry.attributes.position.array;for(let i=0;i<6000;i++){dAng[i]+=dSpd[i];const r=dRad[i];dp[i*3]=r*Math.cos(dAng[i]);dp[i*3+1]=dOff[i]+Math.sin(tm*1.5+r*0.1)*0.3;dp[i*3+2]=r*Math.sin(dAng[i]);}disk.geometry.attributes.position.needsUpdate=true;}ctrl.update();CP.render();}
+init();anim();
+</script>
+</body>
+</html>
